@@ -296,3 +296,99 @@ TEST(testIntrin, testHaddEpi16)
     EXPECT_EQ(int16_t(c[i + 7]), int16_t(b[i + 6] + b[i + 7]));
   }
 }
+
+TEST(testIntrin, testSLLIepi16) {
+    std::array<int16_t, 16> a;
+    std::array<int16_t, 16> b;
+    for(unsigned int i = 0; i < 16;i++)  {
+        a[i] = rand();
+    }
+
+#define CHECK_LSHIFT(a, b, x)\
+    b = CPP_INTRIN::m256_slli_epi16<x>(a); \
+    EXPECT_EQ(b[0], int16_t(a[0]<<x)); \
+    EXPECT_EQ(b[1], int16_t(a[1]<<x)); \
+    EXPECT_EQ(b[2], int16_t(a[2]<<x)); \
+    EXPECT_EQ(b[3], int16_t(a[3]<<x)); \
+    EXPECT_EQ(b[4], int16_t(a[4]<<x)); \
+    EXPECT_EQ(b[5], int16_t(a[5]<<x)); \
+    EXPECT_EQ(b[6], int16_t(a[6]<<x)); \
+    EXPECT_EQ(b[7], int16_t(a[7]<<x)); \
+    EXPECT_EQ(b[8], int16_t(a[8]<<x)); \
+    EXPECT_EQ(b[9], int16_t(a[9]<<x)); \
+    EXPECT_EQ(b[10], int16_t(a[10]<<x)); \
+    EXPECT_EQ(b[11], int16_t(a[11]<<x)); \
+    EXPECT_EQ(b[12], int16_t(a[12]<<x)); \
+    EXPECT_EQ(b[13], int16_t(a[13]<<x)); \
+    EXPECT_EQ(b[14], int16_t(a[14]<<x)); \
+    EXPECT_EQ(b[15], int16_t(a[15]<<x)); \
+
+    CHECK_LSHIFT(a,b, 0);
+    CHECK_LSHIFT(a,b, 1);
+    CHECK_LSHIFT(a,b, 2);
+    CHECK_LSHIFT(a,b, 3);
+    CHECK_LSHIFT(a,b, 4);
+
+
+    CHECK_LSHIFT(a,b, 5);
+    CHECK_LSHIFT(a,b, 6);
+    CHECK_LSHIFT(a,b, 7);
+    CHECK_LSHIFT(a,b, 8);
+    CHECK_LSHIFT(a,b, 9);
+
+    CHECK_LSHIFT(a,b, 10);
+    CHECK_LSHIFT(a,b, 11);
+    CHECK_LSHIFT(a,b, 12);
+    CHECK_LSHIFT(a,b, 13);
+    CHECK_LSHIFT(a,b, 14);
+    CHECK_LSHIFT(a,b, 15);
+    CHECK_LSHIFT(a,b, 16);
+}
+
+TEST(testIntrin, testSRLIepi16) {
+    std::array<int16_t, 16> a;
+    std::array<int16_t, 16> b;
+    for(unsigned int i = 0; i < 16;i++)  {
+        a[i] = rand();
+    }
+
+#define CHECK_RSHIFT(a, b, x)\
+    b = CPP_INTRIN::m256_srli_epi16<x>(a); \
+    EXPECT_EQ(b[0], int16_t(((uint16_t)a[0])>>x)); \
+    EXPECT_EQ(b[1], int16_t(((uint16_t)a[1])>>x)); \
+    EXPECT_EQ(b[2], int16_t(((uint16_t)a[2])>>x)); \
+    EXPECT_EQ(b[3], int16_t(((uint16_t)a[3])>>x)); \
+    EXPECT_EQ(b[4], int16_t(((uint16_t)a[4])>>x)); \
+    EXPECT_EQ(b[5], int16_t(((uint16_t)a[5])>>x)); \
+    EXPECT_EQ(b[6], int16_t(((uint16_t)a[6])>>x)); \
+    EXPECT_EQ(b[7], int16_t(((uint16_t)a[7])>>x)); \
+    EXPECT_EQ(b[8], int16_t(((uint16_t)a[8])>>x)); \
+    EXPECT_EQ(b[9], int16_t(((uint16_t)a[9])>>x)); \
+    EXPECT_EQ(b[10], int16_t(((uint16_t)a[10])>>x)); \
+    EXPECT_EQ(b[11], int16_t(((uint16_t)a[11])>>x)); \
+    EXPECT_EQ(b[12], int16_t(((uint16_t)a[12])>>x)); \
+    EXPECT_EQ(b[13], int16_t(((uint16_t)a[13])>>x)); \
+    EXPECT_EQ(b[14], int16_t(((uint16_t)a[14])>>x)); \
+    EXPECT_EQ(b[15], int16_t(((uint16_t)a[15])>>x)); \
+
+    CHECK_RSHIFT(a,b, 0);
+    CHECK_RSHIFT(a,b, 1);
+    CHECK_RSHIFT(a,b, 2);
+    CHECK_RSHIFT(a,b, 3);
+    CHECK_RSHIFT(a,b, 4);
+
+
+    CHECK_RSHIFT(a,b, 5);
+    CHECK_RSHIFT(a,b, 6);
+    CHECK_RSHIFT(a,b, 7);
+    CHECK_RSHIFT(a,b, 8);
+    CHECK_RSHIFT(a,b, 9);
+
+    CHECK_RSHIFT(a,b, 10);
+    CHECK_RSHIFT(a,b, 11);
+    CHECK_RSHIFT(a,b, 12);
+    CHECK_RSHIFT(a,b, 13);
+    CHECK_RSHIFT(a,b, 14);
+    CHECK_RSHIFT(a,b, 15);
+    CHECK_RSHIFT(a,b, 16);
+}
