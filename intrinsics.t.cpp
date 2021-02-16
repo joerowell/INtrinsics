@@ -394,3 +394,28 @@ TEST(testIntrin, testSRLIepi16)
   CHECK_RSHIFT(a, b, 15);
   CHECK_RSHIFT(a, b, 16);
 }
+
+TEST(testIntrin, testAbsepi16)
+{
+  std::array<int16_t, 16> a;
+  for (unsigned i = 0; i < 16; i++)
+  {
+    a[i] = rand();
+  }
+
+  auto b = CPP_INTRIN::m256_abs_epi16(a);
+  for (unsigned int i = 0; i < 16; i++)
+  {
+    EXPECT_EQ(b[i], std::abs(a[i]));
+  }
+}
+
+TEST(testIntrin, testRand)
+{
+  __uint128_t a = static_cast<unsigned>(rand());
+  __uint128_t b = static_cast<unsigned>(rand());
+
+  auto k = CPP_INTRIN::get_randomness(a, b);
+  EXPECT_NE(k, a);
+  EXPECT_NE(k, b);
+}

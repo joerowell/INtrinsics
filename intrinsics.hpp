@@ -1,10 +1,12 @@
-#ifndef __INTRINSICS__
-#define __INTRINSICS__
+#ifndef _INCLUDED_INTRINSICS__
+#define _INCLUDED_INTRINSICS__
 #include <array>
 #include <cassert>
+#include <climits>
 #include <cstdint>
 #include <immintrin.h>
 #include <iostream>
+#include <numeric>
 
 /***
  * Intrinsics. This header file provides a collection of hand-written versions
@@ -689,6 +691,92 @@ struct CPP_INTRIN
       b[i] = static_cast<int16_t>((static_cast<uint16_t>(a[i]) >> imm8));
     }
     return b;
+  }
+
+  /**
+   * m256_abs_epi16. This function accepts an array reference, a, and applies the abs function
+   * to each 16-bit integer in a, returning the result (denoted as b).
+   *
+   * This exactly mimics the _mm256_abs_epi16 intrinsic.
+   * In particular, for each i = (0, 15) we have that b[i] = abs(a[i]) upon return.
+   * Since GCC 10.2 appears to have issues generating the right object code
+   * (see https://godbolt.org/z/7YnKfo), we provide AVX2 and SSE3 intrinsic delegation.
+   * a) If __AVX2__ is defined, we use the _mm256_abs_epi16 intrinsics.
+   * b) If not, and if __SSSE4__ is defined, we use the _mm_abs_epi16 over each lane of a.
+   * c) If not, we use the hand-rolled version as explained below.
+   *
+   */
+  static inline std::array<int16_t, 16> m256_abs_epi16(const std::array<int16_t, 16> &a) noexcept
+  {
+    std::array<int16_t, 16> b;
+
+#ifdef __AVX2__
+    _mm256_store_si256(reinterpret_cast<__m256i *>(&b[0]),
+                       _mm256_abs_epi16(*reinterpret_cast<const __m256i *>(&a[0])));
+#elif defined(__SSE3__)
+    _mm_store_si128(reinterpret_cast<__m128i *>(&b[0]),
+                    _mm_abs_epi16(*reinterpret_cast<const __m128i *>(&a[0])));
+    _mm_store_si128(reinterpret_cast<__m128i *>(&b[8]),
+                    _mm_abs_epi16(*reinterpret_cast<const __m128i *>(&a[8])));
+#else
+
+    // This is a branchless implementation of the ABS function.
+    // The idea is taken from the following excellent blog post:
+    // https://hbfs.wordpress.com/2008/08/05/branchless-equivalents-of-simple-functions/
+    // The idea is that you can generate a mask that represents the sign-bit of the function
+    // by using the behaviour of the shift. You can do the same thing by using type-punning in
+    // unions, but the C++ standard disallows that.
+    //
+    // The point is this: if a[i] is positive, then the leading bit is 0: so the shift
+    // generates an all zero mask. This means the second line does nothing.
+    // By contrast, if a[i] is negative, then the shift generates the all 1 mask.
+    // When xoring against this, we will get the two's complement of a[i]: subtracting
+    // sign-extend in this context implicitly converts it to 1, which is exactly how you
+    // convert between two's complement numbers. Cool, eh?
+    // BTW: this is branchless because the if would have maximum entropy (i.e it's a 50/50 chance
+    // if your number is positive or negative -- not fun.)
+    for (unsigned int i = 0; i < 16; i++)
+    {
+      const int16_t signed_extend = a[i] >> (CHAR_BIT * sizeof(int16_t) - 1);
+      b[i]                        = (a[i] ^ signed_extend) - signed_extend;
+    }
+#endif
+    return b;
+  }
+
+  /**
+   * get_randomness. This function is not SIMD in nature: instead, given two sources of randomness,
+   * gstate_1 and g_state2, it produces a 128-bit random value.
+   *
+   * In it's naive form, this is based on Lehmer's generator, which is (arguably) the simplest
+   * random number generator that can pass the Big Crush tests. It's also remarkably simple
+   * to write -- see e.g
+   * https://lemire.me/blog/2019/03/19/the-fastest-conventional-random-number-generator-that-can-pass-big-crush/
+   *
+   * However, in some situations it can be a little bit slow compared to the available alternatives.
+   * As a result -- and where applicable -- we delegate to the aes_enc function, which is really
+   * fast, to produce randomness. This trick was first brought to my attention by working on
+   * https://github.com/lducas/AVX2-BDGL-bucketer.
+   *
+   * WARNING WARNING WARNING: this should _not_ be used for any situation
+   * where you need true randomness. It may be fast -- it may even appear reasonable --
+   * but please, don't use this for anything that needs anything sensible.
+   * Here we *just* use it for speed: it's fast and small, but beyond that there's no reason
+   * to use it. You have been warned.
+   */
+  static inline __uint128_t get_randomness(__uint128_t &gstate_1, __uint128_t &gstate_2) noexcept
+  {
+    __uint128_t out;
+#ifdef __AES_NI__
+    _mm_store_si128(reinterpret_cast<__m128i *>(&out),
+                    _mm_aesenc_si128(*reinterpret_cast<__m128i *>(&gstate_1),
+                                     *reinterpret_cast<__m128i *>(&gstate_2)));
+#else
+    gstate_1 *= 0xda942042e4dd85b5;
+    gstate_2 *= 0xda942042e4dd85b5;
+    out = (gstate_1 << 64) | (gstate_2 >> 64);
+#endif
+    return out;
   }
 };
 
