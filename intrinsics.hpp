@@ -637,57 +637,59 @@ struct CPP_INTRIN
     return b;
   }
 
-
   /**
-   * m256_slli_epi16. Given an array reference, a, we shift each int16_t in a by to the left by 
-   * imm8 many positions. If imm8 > 16, we replace by zeros. This corresponds exactly to the 
+   * m256_slli_epi16. Given an array reference, a, we shift each int16_t in a by to the left by
+   * imm8 many positions. If imm8 > 16, we replace by zeros. This corresponds exactly to the
    * _mm256_slli_epi16 intrinsic.
    * GCC 10.2 compiles this exactly to the right intrinsic, so there's no need for any clever
    * tricks.
    */
-  template<int8_t imm8>
-  static inline std::array<int16_t, 16> m256_slli_epi16(const std::array<int16_t, 16>& a) noexcept {
+  template <int8_t imm8>
+  static inline std::array<int16_t, 16> m256_slli_epi16(const std::array<int16_t, 16> &a) noexcept
+  {
     std::array<int16_t, 16> b;
     // Because left-shift is well-defined, the compiler will actually just implement
-    // this as either two 128-bit shifts or one 256-bit shift. In other words, this is 
+    // this as either two 128-bit shifts or one 256-bit shift. In other words, this is
     // an easy thing for the compiler to optimise.
-    // Note; this will cause constants to exist in your instruction cache. This is because 
+    // Note; this will cause constants to exist in your instruction cache. This is because
     // imm8 needs to be an immediate for this to compile properly. If you do not know why this
     // matters, don't worry. (short answer: bigger entry -- fewer entries -- not great). But, this
     // is unfixable.
-    for(unsigned int i = 0; i < 16;i++) {
-         b[i] = a[i] << imm8;
+    for (unsigned int i = 0; i < 16; i++)
+    {
+      b[i] = a[i] << imm8;
     }
 
     return b;
   }
-  
+
   /**
-   * m256_srli_epi16. Given an array reference, a, we shift each int16_t in a by to the right by 
-   * imm8 many positions. If imm8 > 16, we replace by zeros. This corresponds exactly to the 
+   * m256_srli_epi16. Given an array reference, a, we shift each int16_t in a by to the right by
+   * imm8 many positions. If imm8 > 16, we replace by zeros. This corresponds exactly to the
    * _mm256_slli_epi16 intrinsic.
    * GCC 10.2 compiles this exactly to the right intrinsic, so there's no need for any clever
    * tricks.
    */
-  template<int8_t imm8>
-  static inline std::array<int16_t, 16> m256_srli_epi16(const std::array<int16_t, 16>& a) noexcept {
-   std::array<int16_t, 16> b;
-   // Right-shift is not well-defined for signed values. 
-   //
-   // In particular,
-   // the C and C++ standards take the view that shifting a value should not change its sign.
-   // This means that here we need to explicitly tell the compiler that we want to shift in 0s
-   // by throwing away the 'signedness' for the shift operation. If we don't do this, then the 
-   // compiler *will* generate vectorised code, but the semantics of the operation are completely
-   // different (i.e the leading bits now depend on the sign). 
-   // This is the sort of bug that would be nigh-on impossible to find, so this 
-   // comment is meant to draw your attention to it.
-   for(unsigned int i = 0; i < 16;i++) {
-       b[i] = static_cast<int16_t>((static_cast<uint16_t>(a[i]) >> imm8));
-   }
-   return b;
+  template <int8_t imm8>
+  static inline std::array<int16_t, 16> m256_srli_epi16(const std::array<int16_t, 16> &a) noexcept
+  {
+    std::array<int16_t, 16> b;
+    // Right-shift is not well-defined for signed values.
+    //
+    // In particular,
+    // the C and C++ standards take the view that shifting a value should not change its sign.
+    // This means that here we need to explicitly tell the compiler that we want to shift in 0s
+    // by throwing away the 'signedness' for the shift operation. If we don't do this, then the
+    // compiler *will* generate vectorised code, but the semantics of the operation are completely
+    // different (i.e the leading bits now depend on the sign).
+    // This is the sort of bug that would be nigh-on impossible to find, so this
+    // comment is meant to draw your attention to it.
+    for (unsigned int i = 0; i < 16; i++)
+    {
+      b[i] = static_cast<int16_t>((static_cast<uint16_t>(a[i]) >> imm8));
+    }
+    return b;
   }
-
 };
 
 #endif

@@ -14,12 +14,12 @@ include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 # These are compiler flags - these should be used
 # to give you a view of what the final code will look like
-add_definitions("-Ofast -msse4")
+add_definitions("-Ofast -mavx2")
 
 # There's many flags you can enable for warnings.
 # This, however, seems to be a decent subset
 # The fact that -Weverything is so insane really is the biggest problem of our time.
-add_definitions("-pedantic -Wall -Wextra -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Winit-self -Wlogical-op -Wmissing-declarations -Wnoexcept -Wold-style-cast -Woverloaded-virtual -Wsign-conversion -Wsign-promo -Wstrict-null-sentinel -Wstrict-overflow=5 -Wno-unused -Wdisabled-optimization")
+add_definitions("-pedantic -Wall -Wextra -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Winit-self -Wlogical-op -Wmissing-declarations -Wnoexcept -Woverloaded-virtual -Wsign-conversion -Wsign-promo -Wstrict-null-sentinel -Wstrict-overflow=5 -Wno-unused -Wdisabled-optimization")
 # Add test cpp files
 add_executable(runIntrinsicsTests intrinsics.t.cpp)
 # Link test executable against gtest & gtest_main
