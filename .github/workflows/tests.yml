@@ -1,0 +1,40 @@
+name: Tests
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install gtest manually
+      run: |
+          cd /home/runner/work/INtrinsics/INtrinsics/
+          git clone https://github.com/google/googletest 
+          cd googletest && mkdir build && cd build 
+          cmake ../ 
+          make
+    - uses: actions/checkout@v1
+    - name: run AVX2 tests
+      run: | 
+          cd /home/runner/work/INtrinsics/INtrinsics/
+          git clone https://github.com/google/googletest 
+          cd googletest && mkdir build && cd build 
+          cmake ../ 
+          make 
+          cd ../../ 
+          mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-Werror -mavx2" ..
+          make 
+          ctest
+    - name: run SSE4 tests 
+      run: |
+          cd build && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-Werror -msse4" ..
+          make
+          ctest
+    - name: run plain tests
+      run: |
+           cd build && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-Werror" ..
+           make
+           ctest
