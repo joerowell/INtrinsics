@@ -10,7 +10,7 @@ Every piece of code in this header file is documented and tested. You can find t
 
 Another excellent resource is the [Intel Intrinsics guide](https://software.intel.com/sites/landingpage/IntrinsicsGuide/). This contains detailed descriptions of each intrinsic instruction, and therefore it can be considered the canonical reference for how these intrinsics work.
 
-If you're interested in how fast given operations are, a must-read (for x86 at least) resource are [Agner Fog's instruction tables](https://www.agner.org/optimize/instruction_tables.pdf). This painstakingly compiled resource details the latency and throughput of almost all of the x86 instructions across many different microachitectures. A very useful resource if you're interested in low-level optimisation.
+If you're interested in how fast given operations are, a set of must-read (for x86 at least) resources are [Agner Fog's instruction tables](https://www.agner.org/optimize/instruction_tables.pdf). This painstakingly compiled resource details the latency and throughput of almost all of the x86 instructions across many different microachitectures. A very useful resource if you're interested in low-level optimisation.
 
 More generally: reading this header file requires some implicit understanding of how Intel SIMD intrinsics are implemented. 
 This also requires some history:
