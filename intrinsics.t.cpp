@@ -419,3 +419,21 @@ TEST(testIntrin, testRand)
   EXPECT_NE(k, a);
   EXPECT_NE(k, b);
 }
+
+TEST(testIntrin, testBroadcast)
+{
+  // Generate a random __uint128_t to use as our broadcast value.
+  __uint128_t a = static_cast<__uint128_t>(rand());
+  auto c        = CPP_INTRIN::m256_broadcastsi128_si256(a);
+
+  // Firstly we check for consistency in the array: in particular, a[i] = a[i+8] for i in {0, 7}
+  for (unsigned int i = 0; i < 8; i++)
+  {
+    ASSERT_EQ(c[i], c[i + 8]);
+  }
+
+  // And then we check that the values are what we actually expect when converted to a uint128_t
+  __uint128_t out;
+  memcpy(&out, &c[0], sizeof(out));
+  ASSERT_EQ(out, a);
+}

@@ -778,6 +778,36 @@ struct CPP_INTRIN
 #endif
     return out;
   }
+
+  /**
+   * m256_broadcastsi128_si256. Given a uint128_t `value` as input, this function returns an array,
+   * `a`, where a[0:7] = value and a[8:15] = value. This is exactly the same semantics as the
+   * __mm256_broadcastsi128_si256 intrinsic.
+   *
+   * GCC 10.2 has trouble producing vectorised code for this function: see e.g
+   * https://godbolt.org/z/covYEd. As a result, similarly to elsewhere in this file, we delegate to
+   * the appropriate intrinsics where available: a) If __AVX2__ is defined, we use the
+   * _mm256_broadcastsi128_si256 intrinsic. b) If __AVX2__ is not defined, but __SSE2__ is, we use
+   * two _mm_store_si128 instructions over the upper and lower halves of a. c) Otherwise we use our
+   * hand-rolled version.
+   */
+  static inline std::array<int16_t, 16> m256_broadcastsi128_si256(const __uint128_t value)
+  {
+    std::array<int16_t, 16> a;
+#ifdef __AVX2__
+    _mm256_store_si256(reinterpret_cast<__m256i *>(&a[0]),
+                       _mm256_broadcastsi128_si256(reinterpret_cast<__m128i>(value)));
+#elif defined(__SSE2__)
+    _mm_store_si128(reinterpret_cast<__m128i *>(&a[0]), reinterpret_cast<__m128i>(value));
+    _mm_store_si128(reinterpret_cast<__m128i *>(&a[8]), reinterpret_cast<__m128i>(value));
+#else
+    // the simplest way to do this is just to use an memcpy.
+    // GCC compiles this to 4 mov instructions, which is exactly the behaviour we want.
+    std::memcpy(&a[0], &value, sizeof(value));
+    std::memcpy(&a[8], &value, sizeof(value));
+#endif
+    return a;
+  }
 };
 
 #endif
