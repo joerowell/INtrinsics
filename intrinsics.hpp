@@ -808,6 +808,24 @@ struct CPP_INTRIN
 #endif
     return a;
   }
+
+  /**
+   * mm_extract_epi64. Given a uint128_t `value` as input and a template parameter `pos`, this
+   * function returns the 64-bit in value[pos*64:(pos*64) + 63]. This compiles down into a
+   * a series of shifts and xors, which is relatively fast.
+   *
+   * GCC 10.2 generates decent code (see lines 8 and 9 of https://godbolt.org/z/9nEcEe), but it
+   * isn't quite the vectorised instructions we'd like. As a result, we delegate to the pextract
+   * intrinsic if it's available. This intrinsic is available if SSE4.1 is available.
+   */
+  template <unsigned pos> static inline int64_t mm_extract_epi64(const __uint128_t value)
+  {
+#ifdef __AVX__  // SSE4.1 doesn't have a supported macro: the lowest other macro is AVX.
+    return static_cast<int64_t>(_mm_extract_epi64(reinterpret_cast<__m128i>(value), pos));
+#else
+    return (value >> (pos * 64)) & 0xFFFFFFFFFFFFFFFF;
+#endif
+  }
 };
 
 #endif

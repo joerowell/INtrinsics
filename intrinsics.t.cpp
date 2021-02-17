@@ -437,3 +437,16 @@ TEST(testIntrin, testBroadcast)
   memcpy(&out, &c[0], sizeof(out));
   ASSERT_EQ(out, a);
 }
+
+TEST(testIntrin, testExtract)
+{
+  __uint128_t a = static_cast<__uint128_t>(rand());
+  auto c        = CPP_INTRIN::mm_extract_epi64<0>(a);
+  auto d        = CPP_INTRIN::mm_extract_epi64<1>(a);
+  // Extract the 64-bit quantities manually.
+
+  uint64_t c1 = a & 0xFFFFFFFFFFFFFFFF;
+  uint64_t c2 = (a >> 64) & 0xFFFFFFFFFFFFFFFF;
+  ASSERT_EQ(c1, c);
+  ASSERT_EQ(c2, d);
+}
