@@ -1,7 +1,7 @@
 # INtrinsics
 This header-file only project implements some Intel intrinsic SIMD functions in plain C++. 
 
-This is primarily useful in situations where you want to ensure that some intrinsic functionality exists regardless of the platform that you're compiling for. For speed, where appropriate we delegate to the native intrinsics if support is avaiable. We only delegate to these intrinsics if GCC 10.2 fails to generate good vectorised object code on the plain C++ input: the documentation in ``intrinsics.hpp`` points out this when it occurs. 
+This is primarily useful in situations where you want to ensure that some intrinsic functionality exists regardless of the platform that you're compiling for. For speed, where appropriate we delegate to the native intrinsics if support is avaiable. We only delegate to these intrinsics if GCC 10.2 fails to generate good vectorised object code on the plain C++ input: the documentation in ``intrinsics.hpp`` points this out when it occurs. 
 
 This repository utilises [Googletest](https://github.com/google/googletest) with Github actions for CI. In particular, we run tests against AVX2, SSE4 and plain C++ on every commit. These tests are in a "TDD-style": they primarily test observed outcomes rather than the mechanics of how the result was derived. This ensures consistent semantics when compiling with different instruction sets.
 
