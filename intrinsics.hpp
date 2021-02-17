@@ -266,6 +266,22 @@ struct CPP_INTRIN
     return c;
   }
 
+  static inline std::array<int16_t, 16> m256_and_epi16(const std::array<int16_t, 16> &a,
+                                                       const std::array<int16_t, 16> &b) noexcept
+  {
+    // Function pre-condition: we check that a != b because that would be the equivalent of a
+    // no-op.
+    assert(a != b);
+
+    std::array<int16_t, 16> c;
+    // Simply AND them together!
+    for (unsigned i = 0; i < 16; i++)
+    {
+      c[i] = a[i] & b[i];
+    }
+    return c;
+  }
+
   /***
    * m256_cmpgt_epi16. This function accepts two array references, a and b, and returns
    * the comparison mask between a and b, denoted as c.
@@ -363,7 +379,6 @@ struct CPP_INTRIN
     _mm256_store_si256(reinterpret_cast<__m256i *>(&c),
                        _mm256_shuffle_epi8(*reinterpret_cast<const __m256i *>(&a),
                                            *reinterpret_cast<const __m256i *>(&b)));
-    return c;
 #elif defined(__SSE3__)
     _mm_store_si128(reinterpret_cast<__m128i *>(&c),
                     _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a),
@@ -371,7 +386,6 @@ struct CPP_INTRIN
     _mm_store_si128(reinterpret_cast<__m128i *>(&c + 8),
                     _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a + 8),
                                      *reinterpret_cast<const __m128i *>(&b + 8)));
-    return c;
 #else
     // This loop would be nicer written as two separate loops,
     // but we're hoping to build a pattern that a sensible compiler
@@ -396,6 +410,7 @@ struct CPP_INTRIN
     // same is true for the second part: it's just shifted by 16 (i.e over the
     // other lane). You can write this as two one-liners if you'd prefer, but
     // this is somewhat neater. and the object code is approximately the same.
+
     for (unsigned int i = 0; i < 16; i++)
     {
       const unsigned flag = b[i] & 0x80;
@@ -406,8 +421,51 @@ struct CPP_INTRIN
       const unsigned pos2  = b[i + 16] & 0x0F;
       c[i + 16]            = int16_t(~flag2) * a[pos2 + 16];
     }
-    return c;
 #endif
+    return c;
+  }
+
+  static inline std::array<int16_t, 16> m256_shuffle_epi8_epi16(const std::array<int16_t, 16> &a,
+                                                                const std::array<int16_t, 16> &b)
+  {
+    // Correctness pre-conditions.
+    assert(a != b);
+    std::array<int16_t, 16> c;
+
+#ifdef __AVX2__
+    _mm256_store_si256(reinterpret_cast<__m256i *>(&c),
+                       _mm256_shuffle_epi8(*reinterpret_cast<const __m256i *>(&a),
+                                           *reinterpret_cast<const __m256i *>(&b)));
+#elif defined(__SSE3__)
+    _mm_store_si128(reinterpret_cast<__m128i *>(&c),
+                    _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a),
+                                     *reinterpret_cast<const __m128i *>(&b)));
+    _mm_store_si128(reinterpret_cast<__m128i *>(&c + 8),
+                    _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a + 8),
+                                     *reinterpret_cast<const __m128i *>(&b + 8)));
+#else
+
+    for (unsigned int i = 0; i < 8; i++)
+    {
+      const unsigned upper_flag = (b[i] >> 8) & 0x80;
+      const unsigned upper_pos  = (b[i] >> 8) & 0x0F;
+
+      const unsigned lower_flag = (b[i]) & 0x80;
+      const unsigned lower_pos  = (b[i]) & 0x0F;
+
+      c[i] = ((int16_t(~upper_flag) * (a[upper_pos] >> (upper_pos % 2)) & 0x0F) << 8) |
+             (int16_t(~lower_flag) * (a[lower_pos] >> (lower_pos % 2)) & 0x0F);
+
+      const unsigned upper_flag2 = (b[i + 8] >> 8) & 0x80;
+      const unsigned upper_pos2  = (b[i + 8] >> 8) & 0x0F;
+      const unsigned lower_flag2 = (b[i + 8]) & 0x80;
+      const unsigned lower_pos2  = (b[i + 8]) & 0x0F;
+      c[i + 8] = ((int16_t(~upper_flag2) * (a[upper_pos2 + 8] >> (upper_pos % 2)) & 0x0F) << 8) |
+                 (int16_t(~lower_flag2) * (a[lower_pos2 + 8] >> (lower_pos % 2)) & 0x0F);
+    }
+
+#endif
+    return c;
   }
 
   /***
