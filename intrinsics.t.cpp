@@ -1,5 +1,6 @@
 #include "intrinsics.hpp"
 #include "gtest/gtest.h"
+#include <bitset>
 #include <cstdlib>
 
 /***
@@ -123,6 +124,102 @@ TEST(testIntrin, testPermu4x64_epi64)
   CHECK_PERMU(c, d, 22);
   CHECK_PERMU(c, d, 23);
 #undef CHECK_PERMU
+}
+
+TEST(testIntrin, testShuffle_epi8)
+{
+  // This function tests the shuffling functionality in this m256_shuffle_epi8.
+  // To begin, we define a random array of 8-bit ints.
+  std::array<int8_t, 32> a;
+  std::array<int8_t, 32> b;
+
+  for (unsigned i = 0; i < 32; i++)
+  {
+    a[i] = rand();
+  }
+
+  // Now we define a general mask too.
+  for (unsigned i = 0; i < 32; i++)
+  {
+    b[i] = rand();
+  }
+
+  // Now we shuffle.
+  auto c = CPP_INTRIN::m256_shuffle_epi8(a, b);
+  for (unsigned int i = 0; i < 32; i++)
+  {
+    if (((b[i] & 0x80) >> 7) == 1)
+    {
+      // the value of c[i] should be 0
+      ASSERT_EQ(c[i], 0);
+    }
+    else
+    {
+      // Here we actually need to check on the value of c.
+      // The 'mask' is from b[i] & 0x0F -- it only uses the final 4 bits.
+      // However, if the value of `i` is greater than 15 we also add 16 to account
+      // for the offset.
+      const unsigned int index =
+          static_cast<unsigned>(((i > 15) * 16)) + static_cast<unsigned>((b[i] & 0x0F));
+      ASSERT_EQ(c[i], a[index]);
+    }
+  }
+
+  // We now do exactly the same thing, but over 16-bit entries.
+  std::array<int16_t, 16> a1;
+  std::array<int16_t, 16> b1;
+  for (unsigned i = 0; i < 16; i++)
+  {
+    a1[i] = rand();
+    b1[i] = rand();
+  }
+
+  const auto c1 = CPP_INTRIN::m256_shuffle_epi8_epi16(a1, b1);
+
+  // Rather than deal with the substantial headache of doing a near-endless number of bitshifts,
+  // we copy these bitwise over to 8-bit values.
+  memcpy(&a[0], &a1[0], sizeof(int8_t) * 32);
+  memcpy(&b[0], &b1[0], sizeof(int8_t) * 32);
+  memcpy(&c[0], &c1[0], sizeof(int8_t) * 32);
+
+  for (unsigned int i = 0; i < 32; i++)
+  {
+    if (((b[i] & 0x80) >> 7) == 1)
+    {
+      // the value of c[i] should be 0
+      ASSERT_EQ(c[i], 0);
+    }
+    else
+    {
+      // Here we actually need to check on the value of c.
+      // The 'mask' is from b[i] & 0x0F -- it only uses the final 4 bits.
+      // However, if the value of `i` is greater than 15 we also add 16 to account
+      // for the offset.
+      const unsigned int index =
+          static_cast<unsigned>(((i > 15) * 16)) + static_cast<unsigned>((b[i] & 0x0F));
+      ASSERT_EQ(c[i], a[index]);
+    }
+  }
+}
+
+TEST(testIntrin, testz_and_si256)
+{
+  // Generate two random vectors for the failure case.
+  std::array<int16_t, 16> a;
+  a.fill(1);
+  std::array<int16_t, 16> b;
+  b.fill(0);
+
+  ASSERT_EQ(CPP_INTRIN::m256_testz_si256(a, b), true);
+  std::array<int16_t, 16> a2;
+  std::array<int16_t, 16> b2;
+
+  for (unsigned int i = 0; i < 16; i++)
+  {
+    a2[i] = b2[i] = rand();
+  }
+
+  ASSERT_EQ(CPP_INTRIN::m256_testz_si256(a2, b2), false);
 }
 
 // Tests for the 16-bit addition function.

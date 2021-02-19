@@ -4,6 +4,7 @@
 #include <cassert>
 #include <climits>
 #include <cstdint>
+#include <cstring>
 #include <immintrin.h>
 #include <iostream>
 #include <numeric>
@@ -269,10 +270,6 @@ struct CPP_INTRIN
   static inline std::array<int16_t, 16> m256_and_epi16(const std::array<int16_t, 16> &a,
                                                        const std::array<int16_t, 16> &b) noexcept
   {
-    // Function pre-condition: we check that a != b because that would be the equivalent of a
-    // no-op.
-    assert(a != b);
-
     std::array<int16_t, 16> c;
     // Simply AND them together!
     for (unsigned i = 0; i < 16; i++)
@@ -380,12 +377,12 @@ struct CPP_INTRIN
                        _mm256_shuffle_epi8(*reinterpret_cast<const __m256i *>(&a),
                                            *reinterpret_cast<const __m256i *>(&b)));
 #elif defined(__SSE3__)
-    _mm_store_si128(reinterpret_cast<__m128i *>(&c),
-                    _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a),
-                                     *reinterpret_cast<const __m128i *>(&b)));
-    _mm_store_si128(reinterpret_cast<__m128i *>(&c + 8),
-                    _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a + 8),
-                                     *reinterpret_cast<const __m128i *>(&b + 8)));
+    _mm_store_si128(reinterpret_cast<__m128i *>(&c[0]),
+                    _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a[0]),
+                                     *reinterpret_cast<const __m128i *>(&b[0])));
+    _mm_store_si128(reinterpret_cast<__m128i *>(&c[16]),
+                    _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a[16]),
+                                     *reinterpret_cast<const __m128i *>(&b[16])));
 #else
     // This loop would be nicer written as two separate loops,
     // but we're hoping to build a pattern that a sensible compiler
@@ -411,15 +408,22 @@ struct CPP_INTRIN
     // other lane). You can write this as two one-liners if you'd prefer, but
     // this is somewhat neater. and the object code is approximately the same.
 
+    // The (1^(...)) trick is a trick for negating the final bit of the number.
+    // Here's how it works: if flag == 0 then the shift gives 1: 1-1  = 0, and so the
+    // ^ gives 1. By contrast, if flag == 1 then the shift gives 2: 2-1 = 1, and so the ^ gives 0.
+    // This can be generalised to n-many bits by changing the 1 to n.
     for (unsigned int i = 0; i < 16; i++)
     {
-      const unsigned flag = b[i] & 0x80;
-      const unsigned pos  = b[i] & 0x0F;
-      c[i]                = int16_t(~flag) * a[pos];
+      const int16_t flag = (b[i] & 0x80) >> 7;
+      assert(flag == 0 || flag == 1);
+      const unsigned pos = b[i] & 0x0F;
+      c[i]               = int8_t((1 ^ ((1u << flag) - 1))) * a[pos];
 
-      const unsigned flag2 = b[i + 16] & 0x80;
-      const unsigned pos2  = b[i + 16] & 0x0F;
-      c[i + 16]            = int16_t(~flag2) * a[pos2 + 16];
+      const unsigned flag2 = (b[i + 16] & 0x80) >> 7;
+      assert(flag2 == 0 || flag2 == 1);
+
+      const unsigned pos2 = b[i + 16] & 0x0F;
+      c[i + 16]           = int8_t((1 ^ ((1u << flag2) - 1))) * a[pos2 + 16];
     }
 #endif
     return c;
@@ -440,30 +444,17 @@ struct CPP_INTRIN
     _mm_store_si128(reinterpret_cast<__m128i *>(&c),
                     _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a),
                                      *reinterpret_cast<const __m128i *>(&b)));
-    _mm_store_si128(reinterpret_cast<__m128i *>(&c + 8),
-                    _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a + 8),
-                                     *reinterpret_cast<const __m128i *>(&b + 8)));
+    _mm_store_si128(reinterpret_cast<__m128i *>(&c[8]),
+                    _mm_shuffle_epi8(*reinterpret_cast<const __m128i *>(&a[8]),
+                                     *reinterpret_cast<const __m128i *>(&b[8])));
 #else
-
-    for (unsigned int i = 0; i < 8; i++)
-    {
-      const unsigned upper_flag = (b[i] >> 8) & 0x80;
-      const unsigned upper_pos  = (b[i] >> 8) & 0x0F;
-
-      const unsigned lower_flag = (b[i]) & 0x80;
-      const unsigned lower_pos  = (b[i]) & 0x0F;
-
-      c[i] = ((int16_t(~upper_flag) * (a[upper_pos] >> (upper_pos % 2)) & 0x0F) << 8) |
-             (int16_t(~lower_flag) * (a[lower_pos] >> (lower_pos % 2)) & 0x0F);
-
-      const unsigned upper_flag2 = (b[i + 8] >> 8) & 0x80;
-      const unsigned upper_pos2  = (b[i + 8] >> 8) & 0x0F;
-      const unsigned lower_flag2 = (b[i + 8]) & 0x80;
-      const unsigned lower_pos2  = (b[i + 8]) & 0x0F;
-      c[i + 8] = ((int16_t(~upper_flag2) * (a[upper_pos2 + 8] >> (upper_pos % 2)) & 0x0F) << 8) |
-                 (int16_t(~lower_flag2) * (a[lower_pos2 + 8] >> (lower_pos % 2)) & 0x0F);
-    }
-
+    std::array<int8_t, 32> d;
+    std::array<int8_t, 32> e;
+    // This actually just moves from a register into
+    std::memcpy(&d, &a, sizeof(int16_t) * 16);
+    std::memcpy(&e, &b, sizeof(int16_t) * 16);
+    auto temp = m256_shuffle_epi8(d, e);
+    std::memcpy(&c, &temp, sizeof(int16_t) * 16);
 #endif
     return c;
   }
@@ -489,6 +480,33 @@ struct CPP_INTRIN
       c[i] = a[i] + b[i];
     }
     return c;
+  }
+
+  /***
+   * m256_testz_si256.
+   */
+  static bool m256_testz_si256(const std::array<int16_t, 16> &a, const std::array<int16_t, 16> &b)
+  {
+#ifdef __AVX2__
+    return _mm256_testz_si256(*reinterpret_cast<const __m256i *>(&a[0]),
+                              *reinterpret_cast<const __m256i *>(&b[0]));
+#else
+    const auto c = m256_and_epi16(a, b);
+    // Sum and pop-cnt all of the elements in c.
+    // Note: builtin_popcountl will compile to a CPU instruction iff SSE4.2 or later
+    // is available, but if not the compiler has its own dedicated software routines
+    // for this.
+    unsigned total0 = 0, total1 = 0, total2 = 0, total3 = 0;
+    for (unsigned i = 0; i < 16; i += 4)
+    {
+      total0 += static_cast<unsigned>(__builtin_popcountl(static_cast<uint16_t>(c[i + 0])));
+      total1 += static_cast<unsigned>(__builtin_popcountl(static_cast<uint16_t>(c[i + 1])));
+      total2 += static_cast<unsigned>(__builtin_popcountl(static_cast<uint16_t>(c[i + 2])));
+      total3 += static_cast<unsigned>(__builtin_popcountl(static_cast<uint16_t>(c[i + 3])));
+    }
+
+    return (total0 + total1 + total2 + total3) == 0;
+#endif
   }
 
   /***
