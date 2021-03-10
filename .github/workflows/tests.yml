@@ -1,9 +1,9 @@
 name: Tests
 on:
   push:
-    branches: [ main c-conversion ]
+    branches: [ main ]
   pull_request:
-    branches: [ main c-conversion ]
+    branches: [ main ]
 
 jobs:
   build:
