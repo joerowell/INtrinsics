@@ -1,16 +1,85 @@
-#include "intrinsics.hpp"
+extern "C" {
+    #include "intrinsics.h"
+    union ArrType;
+    ArrType m256_shuffle_epi8(const ArrType * const a, const ArrType * const b); 
+}
+
 #include "gtest/gtest.h"
 #include <bitset>
 #include <cstdlib>
 
-/***
- * Intrinsics.t.cpp.
- * This file contains the test drivers for each of the methods in the
- * intrinsics.hpp file. This file is also used for CI on the high-level git
- * repo: as a result, any changes to this file will automatically be reflected
- * during the CI stage.
- */
 
+TEST(testIntrin, testShuffle_epi8)
+{
+  // This function tests the shuffling functionality in this m256_shuffle_epi8.
+  // To begin, we define a random array of 8-bit ints.
+  ArrType a;
+  ArrType b;
+
+  for (unsigned i = 0; i < 32; i++)
+  {
+    a.v8[i] = rand();
+  }
+
+  // Now we define a general mask too.
+  for (unsigned i = 0; i < 32; i++)
+  {
+    b.v8[i] = rand();
+  }
+
+  // Now we shuffle.
+  auto c = m256_shuffle_epi8(&a, &b);
+  for (unsigned int i = 0; i < 32; i++)
+  {
+    if (((b.v8[i] & 0x80) >> 7) == 1)
+    {
+      // the value of c[i] should be 0
+      ASSERT_EQ(c.v8[i], 0);
+    }
+    else
+    {
+      // Here we actually need to check on the value of c.
+      // The 'mask' is from b[i] & 0x0F -- it only uses the final 4 bits.
+      // However, if the value of `i` is greater than 15 we also add 16 to account
+      // for the offset.
+      const unsigned int index =
+          static_cast<unsigned>(((i > 15) * 16)) + static_cast<unsigned>((b.v8[i] & 0x0F));
+      ASSERT_EQ(c.v8[i], a.v8[index]);
+    }
+  }
+
+  // We now do exactly the same thing, but over 16-bit entries.
+  ArrType a1;
+  ArrType b1;
+  for (unsigned i = 0; i < 16; i++)
+  {
+    a1.v16[i] = rand();
+    b1.v16[i] = rand();
+  }
+
+  const auto c1 = m256_shuffle_epi8(&a1, &b1);
+
+  for (unsigned int i = 0; i < 32; i++)
+  {
+    if (((b1.v8[i] & 0x80) >> 7) == 1)
+    {
+      // the value of c[i] should be 0
+      ASSERT_EQ(c1.v8[i], 0);
+    }
+    else
+    {
+      // Here we actually need to check on the value of c.
+      // The 'mask' is from b[i] & 0x0F -- it only uses the final 4 bits.
+      // However, if the value of `i` is greater than 15 we also add 16 to account
+      // for the offset.
+      const unsigned int index =
+          static_cast<unsigned>(((i > 15) * 16)) + static_cast<unsigned>((b1.v8[i] & 0x0F));
+      ASSERT_EQ(c1.v8[i], a1.v8[index]);
+    }
+  }
+}
+
+/*
 TEST(testIntrin, testPermu4x64_epi64)
 {
   // The values of this doesn't matter.
@@ -547,3 +616,4 @@ TEST(testIntrin, testExtract)
   ASSERT_EQ(c1, c);
   ASSERT_EQ(c2, d);
 }
+*/
