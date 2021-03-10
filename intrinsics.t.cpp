@@ -79,20 +79,18 @@ TEST(testIntrin, testShuffle_epi8)
   }
 }
 
-/*
 TEST(testIntrin, testPermu4x64_epi64)
 {
   // The values of this doesn't matter.
-  std::array<int64_t, 4> a = {static_cast<int64_t>(rand()), static_cast<int64_t>(rand()),
-                              static_cast<int64_t>(rand()), static_cast<int64_t>(rand())};
-  std::array<int64_t, 4> b;
+  ArrType a, b, c, d;
+  for(unsigned int i = 0; i < 4;i++) {
+      a.v64[i] = rand();
+  }
 
-  std::array<int16_t, 16> c;
-  std::array<int16_t, 16> d;
 
   for (unsigned int i = 0; i < 16; i++)
   {
-    c[i] = rand();
+      c.v16[i] = rand();
   }
   unsigned first, second, third, fourth;
 
@@ -109,11 +107,11 @@ TEST(testIntrin, testPermu4x64_epi64)
   second = (x & 0b00001100) >> 2;                                                                  \
   third  = (x & 0b00110000) >> 4;                                                                  \
   fourth = (x & 0b11000000) >> 6;                                                                  \
-  b      = CPP_INTRIN::m256_permute4x64_epi64<x>(a);                                               \
-  EXPECT_EQ(b[0], a[first]);                                                                       \
-  EXPECT_EQ(b[1], a[second]);                                                                      \
-  EXPECT_EQ(b[2], a[third]);                                                                       \
-  EXPECT_EQ(b[3], a[fourth]);
+  b      = m256_permute4x64_epi64(&a, x);                                               \
+  EXPECT_EQ(b.v64[0], a.v64[first]);                                                                       \
+  EXPECT_EQ(b.v64[1], a.v64[second]);                                                                      \
+  EXPECT_EQ(b.v64[2], a.v64[third]);                                                                       \
+  EXPECT_EQ(b.v64[3], a.v64[fourth]);
 
   // And now we just unroll.
   // There's probably a for-loop preprocessor macro, but this is the edge of my
@@ -150,23 +148,23 @@ TEST(testIntrin, testPermu4x64_epi64)
   second = 4 * ((x & 0b00001100) >> 2);                                                            \
   third  = 4 * ((x & 0b00110000) >> 4);                                                            \
   fourth = 4 * ((x & 0b11000000) >> 6);                                                            \
-  b      = CPP_INTRIN::m256_permute4x64_epi16<x>(a);                                               \
-  EXPECT_EQ(b[0], a[first]);                                                                       \
-  EXPECT_EQ(b[1], a[first + 1]);                                                                   \
-  EXPECT_EQ(b[2], a[first + 2]);                                                                   \
-  EXPECT_EQ(b[3], a[first + 3]);                                                                   \
-  EXPECT_EQ(b[4], a[second]);                                                                      \
-  EXPECT_EQ(b[5], a[second + 1]);                                                                  \
-  EXPECT_EQ(b[6], a[second + 2]);                                                                  \
-  EXPECT_EQ(b[7], a[second + 3]);                                                                  \
-  EXPECT_EQ(b[8], a[third]);                                                                       \
-  EXPECT_EQ(b[9], a[third + 1]);                                                                   \
-  EXPECT_EQ(b[10], a[third + 2]);                                                                  \
-  EXPECT_EQ(b[11], a[third + 3]);                                                                  \
-  EXPECT_EQ(b[12], a[fourth]);                                                                     \
-  EXPECT_EQ(b[13], a[fourth + 1]);                                                                 \
-  EXPECT_EQ(b[14], a[fourth + 2]);                                                                 \
-  EXPECT_EQ(b[15], a[fourth + 3]);
+  b      = m256_permute4x64_epi64(&a,x);                                               \
+  EXPECT_EQ(b.v16[0], a.v16[first]);                                                                       \
+  EXPECT_EQ(b.v16[1], a.v16[first + 1]);                                                                   \
+  EXPECT_EQ(b.v16[2], a.v16[first + 2]);                                                                   \
+  EXPECT_EQ(b.v16[3], a.v16[first + 3]);                                                                   \
+  EXPECT_EQ(b.v16[4], a.v16[second]);                                                                      \
+  EXPECT_EQ(b.v16[5], a.v16[second + 1]);                                                                  \
+  EXPECT_EQ(b.v16[6], a.v16[second + 2]);                                                                  \
+  EXPECT_EQ(b.v16[7], a.v16[second + 3]);                                                                  \
+  EXPECT_EQ(b.v16[8], a.v16[third]);                                                                       \
+  EXPECT_EQ(b.v16[9], a.v16[third + 1]);                                                                   \
+  EXPECT_EQ(b.v16[10], a.v16[third + 2]);                                                                  \
+  EXPECT_EQ(b.v16[11], a.v16[third + 3]);                                                                  \
+  EXPECT_EQ(b.v16[12], a.v16[fourth]);                                                                     \
+  EXPECT_EQ(b.v16[13], a.v16[fourth + 1]);                                                                 \
+  EXPECT_EQ(b.v16[14], a.v16[fourth + 2]);                                                                 \
+  EXPECT_EQ(b.v16[15], a.v16[fourth + 3]);
 
   CHECK_PERMU(c, d, 0);
   CHECK_PERMU(c, d, 1);
@@ -194,83 +192,7 @@ TEST(testIntrin, testPermu4x64_epi64)
   CHECK_PERMU(c, d, 23);
 #undef CHECK_PERMU
 }
-
-TEST(testIntrin, testShuffle_epi8)
-{
-  // This function tests the shuffling functionality in this m256_shuffle_epi8.
-  // To begin, we define a random array of 8-bit ints.
-  std::array<int8_t, 32> a;
-  std::array<int8_t, 32> b;
-
-  for (unsigned i = 0; i < 32; i++)
-  {
-    a[i] = rand();
-  }
-
-  // Now we define a general mask too.
-  for (unsigned i = 0; i < 32; i++)
-  {
-    b[i] = rand();
-  }
-
-  // Now we shuffle.
-  auto c = CPP_INTRIN::m256_shuffle_epi8(a, b);
-  for (unsigned int i = 0; i < 32; i++)
-  {
-    if (((b[i] & 0x80) >> 7) == 1)
-    {
-      // the value of c[i] should be 0
-      ASSERT_EQ(c[i], 0);
-    }
-    else
-    {
-      // Here we actually need to check on the value of c.
-      // The 'mask' is from b[i] & 0x0F -- it only uses the final 4 bits.
-      // However, if the value of `i` is greater than 15 we also add 16 to account
-      // for the offset.
-      const unsigned int index =
-          static_cast<unsigned>(((i > 15) * 16)) + static_cast<unsigned>((b[i] & 0x0F));
-      ASSERT_EQ(c[i], a[index]);
-    }
-  }
-
-  // We now do exactly the same thing, but over 16-bit entries.
-  std::array<int16_t, 16> a1;
-  std::array<int16_t, 16> b1;
-  for (unsigned i = 0; i < 16; i++)
-  {
-    a1[i] = rand();
-    b1[i] = rand();
-  }
-
-  const auto c1 = CPP_INTRIN::m256_shuffle_epi8_epi16(a1, b1);
-
-  // Rather than deal with the substantial headache of doing a near-endless number of bitshifts,
-  // we copy these bitwise over to 8-bit values.
-  memcpy(&a[0], &a1[0], sizeof(int8_t) * 32);
-  memcpy(&b[0], &b1[0], sizeof(int8_t) * 32);
-  memcpy(&c[0], &c1[0], sizeof(int8_t) * 32);
-
-  for (unsigned int i = 0; i < 32; i++)
-  {
-    if (((b[i] & 0x80) >> 7) == 1)
-    {
-      // the value of c[i] should be 0
-      ASSERT_EQ(c[i], 0);
-    }
-    else
-    {
-      // Here we actually need to check on the value of c.
-      // The 'mask' is from b[i] & 0x0F -- it only uses the final 4 bits.
-      // However, if the value of `i` is greater than 15 we also add 16 to account
-      // for the offset.
-      const unsigned int index =
-          static_cast<unsigned>(((i > 15) * 16)) + static_cast<unsigned>((b[i] & 0x0F));
-      ASSERT_EQ(c[i], a[index]);
-    }
-  }
-}
-
+/*
 TEST(testIntrin, testz_and_si256)
 {
   // Generate two random vectors for the failure case.
@@ -436,33 +358,32 @@ TEST(testIntrin, testOrEPI16)
     ASSERT_EQ(c[i], a[i] | b[i]);
   }
 }
+*/
 TEST(testIntrin, testHaddEpi16)
 {
-  std::array<int16_t, 16> a;
-  std::array<int16_t, 16> b;
-  std::array<int16_t, 16> c;
+  ArrType a, b;
 
   for (unsigned int i = 0; i < 16; i++)
   {
-    a[i] = rand();
-    b[i] = rand();
+    a.v16[i] = rand();
+    b.v16[i] = rand();
   }
 
-  c = CPP_INTRIN::m256_hadd_epi16(a, b);
-
+  ArrType c = m256_hadd_epi16(&a, &b);
   for (unsigned int i = 0; i < 16; i += 8)
   {
-    EXPECT_EQ(int16_t(c[i + 0]), int16_t(a[i + 0] + a[i + 1]));
-    EXPECT_EQ(int16_t(c[i + 1]), int16_t(a[i + 2] + a[i + 3]));
-    EXPECT_EQ(int16_t(c[i + 2]), int16_t(a[i + 4] + a[i + 5]));
-    EXPECT_EQ(int16_t(c[i + 3]), int16_t(a[i + 6] + a[i + 7]));
-    EXPECT_EQ(int16_t(c[i + 4]), int16_t(b[i + 0] + b[i + 1]));
-    EXPECT_EQ(int16_t(c[i + 5]), int16_t(b[i + 2] + b[i + 3]));
-    EXPECT_EQ(int16_t(c[i + 6]), int16_t(b[i + 4] + b[i + 5]));
-    EXPECT_EQ(int16_t(c[i + 7]), int16_t(b[i + 6] + b[i + 7]));
+    EXPECT_EQ(int16_t(c.v16[i + 0]), int16_t(a.v16[i + 0] + a.v16[i + 1]));
+    EXPECT_EQ(int16_t(c.v16[i + 1]), int16_t(a.v16[i + 2] + a.v16[i + 3]));
+    EXPECT_EQ(int16_t(c.v16[i + 2]), int16_t(a.v16[i + 4] + a.v16[i + 5]));
+    EXPECT_EQ(int16_t(c.v16[i + 3]), int16_t(a.v16[i + 6] + a.v16[i + 7]));
+    EXPECT_EQ(int16_t(c.v16[i + 4]), int16_t(b.v16[i + 0] + b.v16[i + 1]));
+    EXPECT_EQ(int16_t(c.v16[i + 5]), int16_t(b.v16[i + 2] + b.v16[i + 3]));
+    EXPECT_EQ(int16_t(c.v16[i + 6]), int16_t(b.v16[i + 4] + b.v16[i + 5]));
+    EXPECT_EQ(int16_t(c.v16[i + 7]), int16_t(b.v16[i + 6] + b.v16[i + 7]));
   }
 }
 
+/*
 TEST(testIntrin, testSLLIepi16)
 {
   std::array<int16_t, 16> a;

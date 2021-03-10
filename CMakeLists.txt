@@ -14,7 +14,7 @@ include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 # These are compiler flags - these should be used
 # to give you a view of what the final code will look like
-add_definitions("-Ofast -msse4")
+add_definitions("-Ofast -mavx2")
 
 
 # There's many flags you can enable for warnings.
