@@ -91,44 +91,55 @@ static uint8_t int8_fifth_bit_shift   = 5;
 static uint8_t int8_sixth_bit_shift   = 6;
 static uint8_t int8_seventh_bit_shift = 0;
 
-static uint8_t int8_zero_pair_shift  = 0;
-static uint8_t int8_first_pair_shift = 2;
+static uint8_t int8_zero_pair_shift   = 0;
+static uint8_t int8_first_pair_shift  = 2;
 static uint8_t int8_second_pair_shift = 4;
-static uint8_t int8_third_pair_shift = 6;
-static uint8_t int8_zero_quad_shift  = 0;
-static uint8_t int8_first_quad_shift = 4;
+static uint8_t int8_third_pair_shift  = 6;
+static uint8_t int8_zero_quad_shift   = 0;
+static uint8_t int8_first_quad_shift  = 4;
 
 /**
  * Forward declarations.
- * Note: each and all of these functions must be inline. 
- * The reason is a little-bit hacky, and relies upon an understanding of the linker and 
+ * Note: each and all of these functions must be inline.
+ * The reason is a little-bit hacky, and relies upon an understanding of the linker and
  * intrinsics. If you want to understand, read on -- otherwise, feel free to skip this.
  *
  * With that warning: here are where things get crazy.
- * Some x86 instructions, rather than polluting the instruction cache, actually encode 
- * integer arguments in their instruction codes: in Intel parlance, these arguments are called immediates. 
- * This sounds insane, but it's actually very sensible -- this is no different to writing code like this:
- * void add_1(const int a) {return a + 1;}
- * void add_2(const int a) {return a + 2;} 
+ * Some x86 instructions, rather than polluting the instruction cache, actually encode
+ * integer arguments in their instruction codes: in Intel parlance, these arguments are called
+ * immediates. This sounds insane, but it's actually very sensible -- this is no different to
+ * writing code like this: void add_1(const int a) {return a + 1;} void add_2(const int a) {return a
+ * + 2;}
  * ....
  *
- * And so on and so forth. If you want to guarantee statically what a particular operation will do, enforcing this is not a bad idea.
- * However, it really stumps us when it comes to writing code. We don't want to have to write out all of the variants of the instructions with fixed elements -- we 
- * want to write a singular function that we can call with the immediate as a parameter -- provided we know it at compile-time.
+ * And so on and so forth. If you want to guarantee statically what a particular operation will do,
+ * enforcing this is not a bad idea. However, it really stumps us when it comes to writing code. We
+ * don't want to have to write out all of the variants of the instructions with fixed elements -- we
+ * want to write a singular function that we can call with the immediate as a parameter -- provided
+ * we know it at compile-time.
  *
- * Here's the problem, though: when the compiler encounters the definition of a particular function, it has no way of knowing whether the parameter is known at compile-time or not: it can
- * only see the local definition, not the usage. This is a big problem, and it prevents us from writing code that's neat.
- * The C++ programmers amongst you will think "ah, a template". This would be a good place to use a template -- but unfortunately, there's no such system in C.
- * However, if we think about why a template works here, it seems to be exactly what we want -- the compiler only instantiates a template when it sees a definition (or a call) that supplies a 
- * compile-time as the template argument. How can we mimic this without templates?
+ * Here's the problem, though: when the compiler encounters the definition of a particular function,
+ * it has no way of knowing whether the parameter is known at compile-time or not: it can only see
+ * the local definition, not the usage. This is a big problem, and it prevents us from writing code
+ * that's neat. The C++ programmers amongst you will think "ah, a template". This would be a good
+ * place to use a template -- but unfortunately, there's no such system in C. However, if we think
+ * about why a template works here, it seems to be exactly what we want -- the compiler only
+ * instantiates a template when it sees a definition (or a call) that supplies a compile-time as the
+ * template argument. How can we mimic this without templates?
  *
- * The answer is simple: tell the compiler 'hey, only instantiate this at the call site'. By doing this, we let the compiler 'see' the parameters that have been passed in -- it will then know whether
- * the parameter is a compile-time constant or not, and we'll be on our merry way. While 'inline' is just a hint, it also tells the linker when to do its work (i.e one definition per translation unit)
- * which almost mimics what we want.
+ * The answer is simple: tell the compiler 'hey, only instantiate this at the call site'. By doing
+ * this, we let the compiler 'see' the parameters that have been passed in -- it will then know
+ * whether the parameter is a compile-time constant or not, and we'll be on our merry way. While
+ * 'inline' is just a hint, it also tells the linker when to do its work (i.e one definition per
+ * translation unit) which almost mimics what we want.
  */
 
 inline ArrType m256_shuffle_epi8(const ArrType *const a, const ArrType *const b);
-inline ArrType m256_permute4x64_epi64(const ArrType * const a, const uint8_t imm8);
+inline ArrType m256_permute4x64_epi64(const ArrType *const a, const uint8_t imm8);
+inline ArrType m256_srli_epi16(const ArrType *const a, const uint8_t imm8);
+inline ArrType m256_slli_epi16(const ArrType *const a, const uint8_t imm8);
+inline ArrType m256_abs_epi16(const ArrType *const a);
+
 /**
  * e_sign. Implements the signum function in a branchless fashion on the input value,
  * value.
@@ -237,29 +248,306 @@ inline ArrType m256_hadd_epi16(const ArrType *const a, const ArrType *b)
   return c;
 }
 
-inline ArrType m256_permute4x64_epi64(const ArrType * const a, const uint8_t imm8) {
-    ArrType b;
+inline ArrType m256_permute4x64_epi64(const ArrType *const a, const uint8_t imm8)
+{
+  ArrType b;
 #ifdef __AVX2__
-    b.m256 = _mm256_permute4x64_epi64(a->m256, imm8);
+  b.m256 = _mm256_permute4x64_epi64(a->m256, imm8);
 #else
-    // This function works as follows: grabs the index from each of the bytes of
-    // imm8 We isolate these bytes by bitwise ops, and then shift if necessary
-    // Note; these are constexpr variables, which means that these masks are
-    // computed at compile-time. As a result, this is just a series of mov
-    // instructions, which occur at a rate of approximately 4 per clock: a
-    // clever compiler will interleave these movs to hide the latency.
-     uint8_t zero   = (imm8 & int8_zero_pair_mask) >> int8_zero_pair_shift;
-     uint8_t first  = (imm8 & int8_first_pair_mask) >> int8_first_pair_shift;
-     uint8_t second = (imm8 & int8_second_pair_mask) >> int8_second_pair_shift;
-    // This doesn't require a shift because the bytes are already in the
-    // bottom-most byte.
-     uint8_t third = (imm8 & int8_third_pair_mask) >> int8_third_pair_shift;
-    // Finally, we do the permutation and return.
-    b.v64[0] = a->v64[zero];
-    b.v64[1] = a->v64[first];
-    b.v64[2] = a->v64[second];
-    b.v64[3] = a->v64[third];
+  // This function works as follows: grabs the index from each of the bytes of
+  // imm8 We isolate these bytes by bitwise ops, and then shift if necessary
+  // Note; these are constexpr variables, which means that these masks are
+  // computed at compile-time. As a result, this is just a series of mov
+  // instructions, which occur at a rate of approximately 4 per clock: a
+  // clever compiler will interleave these movs to hide the latency.
+  uint8_t zero   = (imm8 & int8_zero_pair_mask) >> int8_zero_pair_shift;
+  uint8_t first  = (imm8 & int8_first_pair_mask) >> int8_first_pair_shift;
+  uint8_t second = (imm8 & int8_second_pair_mask) >> int8_second_pair_shift;
+  // This doesn't require a shift because the bytes are already in the
+  // bottom-most byte.
+  uint8_t third = (imm8 & int8_third_pair_mask) >> int8_third_pair_shift;
+  // Finally, we do the permutation and return.
+  b.v64[0]          = a->v64[zero];
+  b.v64[1]          = a->v64[first];
+  b.v64[2]          = a->v64[second];
+  b.v64[3]          = a->v64[third];
 #endif
-    return b;
+  return b;
+}
+
+/**
+ * m256_srli_epi16. Given an array reference, a, we shift each int16_t in a by to the right by
+ * imm8 many positions. If imm8 > 16, we replace by zeros. This corresponds exactly to the
+ * _mm256_slli_epi16 intrinsic.
+ * GCC 10.2 compiles this exactly to the right intrinsic, so there's no need for any clever
+ * tricks.
+ */
+inline ArrType m256_srli_epi16(const ArrType *const a, const uint8_t imm8)
+{
+  ArrType b;
+  // Right-shift is not well-defined for signed values.
+  //
+  // In particular,
+  // the C and C++ standards take the view that shifting a value should not change its sign.
+  // This means that here we need to explicitly tell the compiler that we want to shift in 0s
+  // by throwing away the 'signedness' for the shift operation. If we don't do this, then the
+  // compiler *will* generate vectorised code, but the semantics of the operation are completely
+  // different (i.e the leading bits now depend on the sign).
+  // This is the sort of bug that would be nigh-on impossible to find, so this
+  // comment is meant to draw your attention to it.
+  for (unsigned int i = 0; i < 16; i++)
+  {
+    b.v16[i] = (int16_t)((uint16_t)(a->v16[i]) >> imm8);
   }
+  return b;
+}
+
+/**
+ * m256_slli_epi16. Given an array reference, a, we shift each int16_t in a by to the left by
+ * imm8 many positions. If imm8 > 16, we replace by zeros. This corresponds exactly to the
+ * _mm256_slli_epi16 intrinsic.
+ * GCC 10.2 compiles this exactly to the right intrinsic, so there's no need for any clever
+ * tricks.
+ */
+inline ArrType m256_slli_epi16(const ArrType *const a, const uint8_t imm8)
+{
+  ArrType b;
+  // Because left-shift is well-defined, the compiler will actually just implement
+  // this as either two 128-bit shifts or one 256-bit shift. In other words, this is
+  // an easy thing for the compiler to optimise.
+  // Note; this will cause constants to exist in your instruction cache. This is because
+  // imm8 needs to be an immediate for this to compile properly. If you do not know why this
+  // matters, don't worry. (short answer: bigger entry -- fewer entries -- not great). But, this
+  // is unfixable.
+  for (unsigned int i = 0; i < 16; i++)
+  {
+    b.v16[i] = a->v16[i] << imm8;
+  }
+
+  return b;
+}
+
+/**
+ * m256_abs_epi16. This function accepts an array reference, a, and applies the abs function
+ * to each 16-bit integer in a, returning the result (denoted as b).
+ *
+ * This exactly mimics the _mm256_abs_epi16 intrinsic.
+ * In particular, for each i = (0, 15) we have that b[i] = abs(a[i]) upon return.
+ * Since GCC 10.2 appears to have issues generating the right object code
+ * (see https://godbolt.org/z/7YnKfo), we provide AVX2 and SSE3 intrinsic delegation.
+ * a) If __AVX2__ is defined, we use the _mm256_abs_epi16 intrinsics.
+ * b) If not, and if __SSSE4__ is defined, we use the _mm_abs_epi16 over each lane of a.
+ * c) If not, we use the hand-rolled version as explained below.
+ *
+ */
+inline ArrType m256_abs_epi16(const ArrType *const a)
+{
+  ArrType b;
+
+#ifdef __AVX2__
+  b.m256 = _mm256_abs_epi16(a->m256);
+#elif defined(__SSE3__)
+  b.m128[0]         = _mm_abs_epi16(a->m128[0]);
+  b.m128[1]         = _mm_abs_epi16(a->m128[1]);
+#else
+  // This is a branchless implementation of the ABS function.
+  // The idea is taken from the following excellent blog post:
+  // https://hbfs.wordpress.com/2008/08/05/branchless-equivalents-of-simple-functions/
+  // The idea is that you can generate a mask that represents the sign-bit of the function
+  // by using the behaviour of the shift. If you want to be really clever (as we do here), you can
+  // type pun with a union. In C++ this would be disallowed, but C is more flexible.
+  union pun
+  {
+    // let us suppose long is twice as wide as int
+    long w;
+    // should be hi,lo on a big endian machine
+    struct
+    {
+      int lo, hi;
+    };
+  };
+
+  // The point is this: if a[i] is positive, then the leading bit is 0: so the shift
+  // generates an all zero mask. This means the second line does nothing.
+  // By contrast, if a[i] is negative, then the shift generates the all 1 mask.
+  // When xoring against this, we will get the two's complement of a[i]: subtracting
+  // sign-extend in this context implicitly converts it to 1, which is exactly how you
+  // convert between two's complement numbers. Cool, eh?
+  // BTW: this is branchless because the if would have maximum entropy (i.e it's a 50/50 chance
+  // if your number is positive or negative -- not fun.)
+  for (unsigned int i = 0; i < 16; i++)
+  {
+    const union pun t           = {.w = a->v16[i]};
+    const int16_t signed_extend = t.hi;
+    b.v16[i]                    = (a->v16[i] ^ signed_extend) - signed_extend;
+  }
+#endif
+  return b;
+}
+
+/**
+ * get_randomness. This function is not SIMD in nature: instead, given two sources of randomness,
+ * gstate_1 and g_state2, it produces a 128-bit random value.
+ *
+ * In it's naive form, this is based on Lehmer's generator, which is (arguably) the simplest
+ * random number generator that can pass the Big Crush tests. It's also remarkably simple
+ * to write -- see e.g
+ * https://lemire.me/blog/2019/03/19/the-fastest-conventional-random-number-generator-that-can-pass-big-crush/
+ *
+ * However, in some situations it can be a little bit slow compared to the available alternatives.
+ * As a result -- and where applicable -- we delegate to the aes_enc function, which is really
+ * fast, to produce randomness. This trick was first brought to my attention by working on
+ * https://github.com/lducas/AVX2-BDGL-bucketer.
+ *
+ * WARNING WARNING WARNING: this should _not_ be used for any situation
+ * where you need true randomness. It may be fast -- it may even appear reasonable --
+ * but please, don't use this for anything that needs anything sensible.
+ * Here we *just* use it for speed: it's fast and small, but beyond that there's no reason
+ * to use it. You have been warned.
+ */
+
+inline ArrType get_randomness(ArrType *const gstate_1, ArrType *const gstate_2) noexcept
+{
+  ArrType out;
+#ifdef __AES_NI__
+  out.m128[0] = _mm_aesenc_si128(gstate_1->m128[0], gstate_1->m128[0]);
+#else
+  gstate_1->m128[0] = (__m128i)((__uint128_t)gstate_1->m128[0] * 0xda942042e4dd85b5);
+  gstate_2->m128[0] *= (__m128i)((__uint128_t)gstate_2->m128[0] * 0xda942042e4dd85b5);
+  out.v64[0] = gstate_1->v64[1];
+  out.v64[1] = gstate_2->v64[0];
+#endif
+  return out;
+}
+
+/***
+ *
+ * m256_xor_epi64. This function accepts two array references, a and b,
+ * and returns the xor of a and b in a third array, denoted as c.
+ * This function exactly mimics the behaviour of the _mm256_xor_si256 function.
+ * In particular, after
+ * this function is called, c has the following layout: for all i in {0, 1, 2,
+ * 3}, c[i] = a[i] ^ b[i].
+ * Note that we allow a == b to be the same pair:
+ * this is because xoring two vectors is a common use
+ * case. As gcc 10.2 has no trouble producing vectorised object code for this
+ * function, we do not explicitly delegate to the intrinsics.
+ */
+inline ArrType m256_xor_epi64(const ArrType *const a, const ArrType *const b)
+{
+  ArrType c;
+  // Simply xor them together!
+  for (unsigned i = 0; i < 4; i++)
+  {
+    c.v64[i] = a->v64[i] ^ b->v64[i];
+  }
+  return c;
+}
+
+/***
+ * m256_or_epi64.
+ * This function accepts two array references, a and b,
+ * and returns the bitwise OR of a and b, denoted as c.
+ * This exactly mimics the behaviour of the _mm256_or_si256 function.
+ *
+ * In particular, after this function is called, c has the following layout: For
+ * all i in {0, 1, 2, 3}, c[i] = a[i] | b[i]
+ * This function will only work if a != b.
+ * We do not allow (a, b) to be the same pair: this is because a | a = a.
+ *
+ * As gcc 10.2 has no trouble producing vectorised object code for this function, we do not
+ * explicitly delegate to the intrinsics.
+ */
+inline ArrType m256_or_epi64(const ArrType *const a, const ArrType *const b)
+{
+  ArrType c;
+  // Simply OR them together!
+  for (unsigned i = 0; i < 4; i++)
+  {
+    c.v64[i] = a->v64[i] | b->v64[i];
+  }
+  return c;
+}
+
+/***
+ * m256_and_epi64.
+ * This function accepts two array references, a and b,
+ * and returns the bitwise AND of a and b, denoted as c.
+ * This exactly mimics the behaviour of the _mm256_and_si256 function.
+ *
+ * In particular, after this function is called, c has the following layout: For
+ * all i in {0, 1, 2, 3}, c[i] = a[i] & b[i]
+ * This function will only work if a != b.
+ * We do not allow (a, b) to be the same pair: this is because a & a = a.
+ *
+ * As gcc 10.2 has no trouble producing vectorised object code for this function, we do not
+ * explicitly delegate to the intrinsics.
+ */
+inline ArrType m256_and_epi64(const ArrType *const a, const ArrType *const b) noexcept
+{
+  // Function pre-condition: we check that a != b because that would be the equivalent of a
+  // no-op.
+  assert(a != b);
+
+  ArrType c;
+  // Simply AND them together!
+  for (unsigned i = 0; i < 4; i++)
+  {
+    c.v64[i] = a->v64[i] & b->v64[i];
+  }
+  return c;
+}
+
+/***
+ * m256_cmpgt_epi16. This function accepts two array references, a and b, and returns
+ * the comparison mask between a and b, denoted as c.
+ *
+ * This exactly mimics the behaviour of the _mm256_cmpgt_epi16
+ * function. In particular, after this function is called, c has the following
+ * layout: For all i = 0, ..., 15:
+ *
+ * c[i] = 0xFFFF if a[i] > b[i]
+ * c[i] = 0 otherwise
+ *
+ * This function will only work if a and b are not equal.
+ * As GCC 10.2 has trouble producing vectorised object code (see https://godbolt.org/z/W9nqq7)
+ * for this function,
+ * where possible we delegate to the relevant
+ * intrinsics. In particular, this function:
+ *
+ * a) If __AVX2__ is defined, it uses the AVX256 function _mm256_cmpgt_epi16.
+ * b) If __AVX2__ is not defined, but __SSE2__ is, it uses the _mm_cmpgt_epi16
+ * function twice.
+ * c) Otherwise, use the hand-written variant. This does generate vectorised
+ * code, but it isn't quite one instruction.
+ */
+inline ArrType m256_cmpgt_epi16(const ArrType *const a, const ArrType *const b)
+{
+  // Note: this isn't strictly necessary, but it'd be faster just
+  // to zero-out the whole array and so we disallow it.
+  // If you want to zero out the whole array, then you can use m256_xor_epi64
+  // or similar.
+  assert(a != b);
+  ArrType c;
+#ifdef __AVX2__
+  c.m256 = _mm256_cmpgt_epi16(a->m256, b->m256);
+#elif defined(__SSE2__)
+  c.m128[0]  = _mm_cmpgt_epi16(a->m128[0], b->m128[0]);
+  c.m128[1]  = _mm_cmpgt_epi16(a->m128[1], b->m128[1]);
+#else
+  // A sensible compiler will unroll this and produce somewhat good vectorised
+  // code, but not quite optimal code (as of GCC 10.2).
+  for (unsigned int i = 0; i < 16; i++)
+  {
+    // This works as follows:
+    // a[i] > b[i] evaluates to 0 or 1.
+    // If 0, then c[i] = 0.
+    // If 1, then c[i] = 0xFFFF,
+    // which matches the semantics of cmpgt_epi16 exactly.
+    c.v16[i] = (a->v16[i] > b->v16[i]) * 0xFFFF;
+  }
+#endif
+  return c;
+}
+
 #endif
