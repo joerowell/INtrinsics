@@ -12,12 +12,12 @@
  * set, or something that isn't an x86-64 platform.
  *
  * Therefore, this file defines some functions that implement the same
- * functionality as some x86_64 intrinsics, but in plain C++. For each function,
+ * functionality as some x86_64 intrinsics, but in plain C. For each function,
  * we tested if gcc 10.2 generated good object code [where appropriate, we
  * include a Godbolt link] -- if it does not, we provide manual calls to the
  * intrinsics themselves. These are only resolved if the relevant macro (e.g
  * __AVX2__) are present at compile-time: this means that the intrinsics will be
- * used if available, but in all other cases we fall back to the manual C++
+ * used if available, but in all other cases we fall back to the manual C
  * implementation. Note: this header set does absolutely no checking to see if
  * the runtime platform supports these intrinsics. This may be added later if
  * necessary.
@@ -63,40 +63,40 @@ typedef union ArrType
 // don't want that.
 
 // Individual bit masks
-static uint8_t int8_zero_bit_mask    = 0b00000001;
-static uint8_t int8_first_bit_mask   = 0b00000010;
-static uint8_t int8_second_bit_mask  = 0b00000100;
-static uint8_t int8_third_bit_mask   = 0b00001000;
-static uint8_t int8_fourth_bit_mask  = 0b00010000;
-static uint8_t int8_fifth_bit_mask   = 0b00100000;
-static uint8_t int8_sixth_bit_mask   = 0b01000000;
-static uint8_t int8_seventh_bit_mask = 0b10000000;
+const static uint8_t int8_zero_bit_mask    = 0b00000001;
+const static uint8_t int8_first_bit_mask   = 0b00000010;
+const static uint8_t int8_second_bit_mask  = 0b00000100;
+const static uint8_t int8_third_bit_mask   = 0b00001000;
+const static uint8_t int8_fourth_bit_mask  = 0b00010000;
+const static uint8_t int8_fifth_bit_mask   = 0b00100000;
+const static uint8_t int8_sixth_bit_mask   = 0b01000000;
+const static uint8_t int8_seventh_bit_mask = 0b10000000;
 
 // Individual pair masks
-static uint8_t int8_zero_pair_mask   = 0b00000011;
-static uint8_t int8_first_pair_mask  = 0b00001100;
-static uint8_t int8_second_pair_mask = 0b00110000;
-static uint8_t int8_third_pair_mask  = 0b11000000;
+const static uint8_t int8_zero_pair_mask   = 0b00000011;
+const static uint8_t int8_first_pair_mask  = 0b00001100;
+const static uint8_t int8_second_pair_mask = 0b00110000;
+const static uint8_t int8_third_pair_mask  = 0b11000000;
 
 // Quad masks.
-static uint8_t int8_zero_quad_mask  = 0b00001111;
-static uint8_t int8_first_quad_mask = 0b11110000;
+const static uint8_t int8_zero_quad_mask  = 0b00001111;
+const static uint8_t int8_first_quad_mask = 0b11110000;
 
-static uint8_t int8_zero_bit_shift    = 0;
-static uint8_t int8_first_bit_shift   = 1;
-static uint8_t int8_second_bit_shift  = 2;
-static uint8_t int8_third_bit_shift   = 3;
-static uint8_t int8_fourth_bit_shift  = 4;
-static uint8_t int8_fifth_bit_shift   = 5;
-static uint8_t int8_sixth_bit_shift   = 6;
-static uint8_t int8_seventh_bit_shift = 0;
+const static uint8_t int8_zero_bit_shift    = 0;
+const static uint8_t int8_first_bit_shift   = 1;
+const static uint8_t int8_second_bit_shift  = 2;
+const static uint8_t int8_third_bit_shift   = 3;
+const static uint8_t int8_fourth_bit_shift  = 4;
+const static uint8_t int8_fifth_bit_shift   = 5;
+const static uint8_t int8_sixth_bit_shift   = 6;
+const static uint8_t int8_seventh_bit_shift = 0;
 
-static uint8_t int8_zero_pair_shift   = 0;
-static uint8_t int8_first_pair_shift  = 2;
-static uint8_t int8_second_pair_shift = 4;
-static uint8_t int8_third_pair_shift  = 6;
-static uint8_t int8_zero_quad_shift   = 0;
-static uint8_t int8_first_quad_shift  = 4;
+const static uint8_t int8_zero_pair_shift   = 0;
+const static uint8_t int8_first_pair_shift  = 2;
+const static uint8_t int8_second_pair_shift = 4;
+const static uint8_t int8_third_pair_shift  = 6;
+const static uint8_t int8_zero_quad_shift   = 0;
+const static uint8_t int8_first_quad_shift  = 4;
 
 /**
  * Forward declarations.
