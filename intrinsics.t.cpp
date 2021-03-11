@@ -192,173 +192,164 @@ TEST(testIntrin, testPermu4x64_epi64)
   CHECK_PERMU(c, d, 23);
 #undef CHECK_PERMU
 }
-/*
+
 TEST(testIntrin, testz_and_si256)
 {
   // Generate two random vectors for the failure case.
-  std::array<int16_t, 16> a;
-  a.fill(1);
-  std::array<int16_t, 16> b;
-  b.fill(0);
-
-  ASSERT_EQ(CPP_INTRIN::m256_testz_si256(a, b), true);
-  std::array<int16_t, 16> a2;
-  std::array<int16_t, 16> b2;
+  ArrType a, b;
+  for(unsigned i = 0; i < 16;i++) {
+      a.v16[i] = 1;
+      b.v16[i] = 0;
+  }
+  
+  ASSERT_EQ(m256_testz_si256(&a, &b), true);
+  ArrType a2, b2;
 
   for (unsigned int i = 0; i < 16; i++)
   {
-    a2[i] = b2[i] = rand();
+    a2.v16[i] = b2.v16[i] = rand();
   }
 
-  ASSERT_EQ(CPP_INTRIN::m256_testz_si256(a2, b2), false);
+  ASSERT_EQ(m256_testz_si256(&a2, &b2), false);
 }
 
 // Tests for the 16-bit addition function.
 TEST(testIntrin, testAdd_epi16)
 {
-  std::array<int16_t, 16> a;
-  std::array<int16_t, 16> b;
-  std::array<int16_t, 16> c;
+  
+  ArrType a;
+  ArrType b;
+  ArrType c;
 
   for (unsigned i = 0; i < 16; i++)
   {
-    a[i] = rand();
-    b[i] = rand();
+    a.v16[i] = rand();
+    b.v16[i] = rand();
   }
 
   // Now we can actually test that it adds up as we expect.
-  c = CPP_INTRIN::m256_add_epi16(a, b);
+  c = m256_add_epi16(&a, &b);
 
   for (unsigned int i = 0; i < 16; i++)
   {
     // Cast to prevent int promotion
-    ASSERT_EQ(c[i], int16_t(a[i] + b[i]));
+    ASSERT_EQ(c.v16[i], int16_t(a.v16[i] + b.v16[i]));
   }
 }
 
 // Tests for addition functions.
 TEST(testIntrin, testSub_epi16)
 {
-  std::array<int16_t, 16> a;
-  std::array<int16_t, 16> b;
-  std::array<int16_t, 16> c;
-
-  std::array<int32_t, 8> a1;
-  std::array<int32_t, 8> b1;
+  ArrType a,b,c;
 
   for (unsigned i = 0; i < 16; i++)
   {
-    a[i] = rand();
-    b[i] = rand();
+    a.v16[i] = rand();
+    b.v16[i] = rand();
   }
 
-  // Now we can actually test that it adds up as we expect.
-  c = CPP_INTRIN::m256_sub_epi16(a, b);
+  // Now we can actually test that these subtract as we expect.
+  c = m256_sub_epi16(&a, &b);
 
   for (unsigned int i = 0; i < 16; i++)
   {
     // Cast to prevent int promotion
-    EXPECT_EQ(c[i], int16_t(a[i] - b[i]));
+    EXPECT_EQ(c.v16[i], int16_t(a.v16[i] - b.v16[i]));
   }
 }
 
 TEST(testIntrin, testSignEPI16)
 {
-  std::array<int16_t, 16> a;
-  std::array<int16_t, 16> b;
-  std::array<int16_t, 16> c;
+  ArrType a, b, c;
 
   for (unsigned i = 0; i < 16; i++)
   {
-    a[i] = rand();
-    b[i] = rand();
+     a.v16[i] = rand();
+     b.v16[i] = rand();
   }
 
   // However, with that passed we can call it properly.
-  c = CPP_INTRIN::m256_sign_epi16(a, b);
+  c = m256_sign_epi16(&a, &b);
 
   // note: this loop just checks for bit equality. You can interpret them
   // however you like :) The point here is we're explicitly checking the
   // semantics of the sign_epi16 function.
   for (unsigned int i = 0; i < 16; i++)
   {
-    if (b[i] < 0)
+    if (b.v16[i] < 0)
     {
-      EXPECT_EQ(c[i], -a[i]);
+      EXPECT_EQ(c.v16[i], -a.v16[i]);
     }
-    else if (b[i] == 0)
+    else if (b.v16[i] == 0)
     {
-      EXPECT_EQ(c[i], 0);
+      EXPECT_EQ(c.v16[i], 0);
     }
     else
     {
-      EXPECT_EQ(c[i], a[i]);
+      EXPECT_EQ(c.v16[i], a.v16[i]);
     }
   }
 }
 
 TEST(testIntrin, testAndEPI16)
 {
-  std::array<int64_t, 4> a;
-  std::array<int64_t, 4> b;
+  ArrType a;
+  ArrType b;
   for (unsigned int i = 0; i < 4; i++)
   {
-    a[i] = static_cast<int64_t>(rand());
-    b[i] = static_cast<int64_t>(rand());
+    a.v64[i] = static_cast<int64_t>(rand());
+    b.v64[i] = static_cast<int64_t>(rand());
   }
 
-  std::array<int64_t, 4> c;
   // Here we death test: the call to the regular and_si256 should terminate if
   // the size isn't 4.
-  c = CPP_INTRIN::m256_and_epi64(a, b);
+  ArrType c = m256_and_epi64(&a, &b);
 
   for (unsigned int i = 0; i < 4; i++)
   {
-    ASSERT_EQ(c[i], a[i] & b[i]);
+    ASSERT_EQ(c.v64[i], a.v64[i] & b.v64[i]);
   }
 }
+
 TEST(testIntrin, testXorEPI16)
 {
-  std::array<int64_t, 4> a;
-  std::array<int64_t, 4> b;
+  ArrType a;
+  ArrType b;
   for (unsigned int i = 0; i < 4; i++)
   {
-    a[i] = static_cast<int64_t>(rand());
-    b[i] = static_cast<int64_t>(rand());
+    a.v64[i] = static_cast<int64_t>(rand());
+    b.v64[i] = static_cast<int64_t>(rand());
   }
+  
 
-  std::array<int64_t, 4> c;
-  // Here we death test: the call to the regular and_si256 should terminate if
-  // the size isn't 4.
-  c = CPP_INTRIN::m256_xor_epi64(a, b);
+  ArrType c = m256_xor_epi64(&a, &b);
 
   for (unsigned int i = 0; i < 4; i++)
   {
-    ASSERT_EQ(c[i], a[i] ^ b[i]);
+    ASSERT_EQ(c.v64[i], a.v64[i] ^ b.v64[i]);
   }
 }
 
-TEST(testIntrin, testOrEPI16)
-{
-  std::array<int64_t, 4> a;
-  std::array<int64_t, 4> b;
+
+TEST(testIntrin, testOrEpi16) {
+  ArrType a;
+  ArrType b;
   for (unsigned int i = 0; i < 4; i++)
   {
-    a[i] = static_cast<int64_t>(rand());
-    b[i] = static_cast<int64_t>(rand());
+    a.v64[i] = static_cast<int64_t>(rand());
+    b.v64[i] = static_cast<int64_t>(rand());
   }
+  
 
-  std::array<int64_t, 4> c;
-  // Here we death test: the call to the regular and_si256 should terminate if
-  // the size isn't 4.
-  c = CPP_INTRIN::m256_or_epi64(a, b);
+  ArrType c = m256_or_epi64(&a, &b);
 
   for (unsigned int i = 0; i < 4; i++)
   {
-    ASSERT_EQ(c[i], a[i] | b[i]);
+    ASSERT_EQ(c.v64[i], a.v64[i] | b.v64[i]);
   }
 }
-*/
+
+
 TEST(testIntrin, testHaddEpi16)
 {
   ArrType a, b;
@@ -383,34 +374,32 @@ TEST(testIntrin, testHaddEpi16)
   }
 }
 
-/*
 TEST(testIntrin, testSLLIepi16)
 {
-  std::array<int16_t, 16> a;
-  std::array<int16_t, 16> b;
+  ArrType a, b;
   for (unsigned int i = 0; i < 16; i++)
   {
-    a[i] = rand();
+    a.v16[i] = rand();
   }
 
 #define CHECK_LSHIFT(a, b, x)                                                                      \
-  b = CPP_INTRIN::m256_slli_epi16<x>(a);                                                           \
-  EXPECT_EQ(b[0], int16_t(a[0] << x));                                                             \
-  EXPECT_EQ(b[1], int16_t(a[1] << x));                                                             \
-  EXPECT_EQ(b[2], int16_t(a[2] << x));                                                             \
-  EXPECT_EQ(b[3], int16_t(a[3] << x));                                                             \
-  EXPECT_EQ(b[4], int16_t(a[4] << x));                                                             \
-  EXPECT_EQ(b[5], int16_t(a[5] << x));                                                             \
-  EXPECT_EQ(b[6], int16_t(a[6] << x));                                                             \
-  EXPECT_EQ(b[7], int16_t(a[7] << x));                                                             \
-  EXPECT_EQ(b[8], int16_t(a[8] << x));                                                             \
-  EXPECT_EQ(b[9], int16_t(a[9] << x));                                                             \
-  EXPECT_EQ(b[10], int16_t(a[10] << x));                                                           \
-  EXPECT_EQ(b[11], int16_t(a[11] << x));                                                           \
-  EXPECT_EQ(b[12], int16_t(a[12] << x));                                                           \
-  EXPECT_EQ(b[13], int16_t(a[13] << x));                                                           \
-  EXPECT_EQ(b[14], int16_t(a[14] << x));                                                           \
-  EXPECT_EQ(b[15], int16_t(a[15] << x));
+  b = m256_slli_epi16(&a, x);                                                           \
+  EXPECT_EQ(b.v16[0], int16_t(a.v16[0] << x));                                                             \
+  EXPECT_EQ(b.v16[1], int16_t(a.v16[1] << x));                                                             \
+  EXPECT_EQ(b.v16[2], int16_t(a.v16[2] << x));                                                             \
+  EXPECT_EQ(b.v16[3], int16_t(a.v16[3] << x));                                                             \
+  EXPECT_EQ(b.v16[4], int16_t(a.v16[4] << x));                                                             \
+  EXPECT_EQ(b.v16[5], int16_t(a.v16[5] << x));                                                             \
+  EXPECT_EQ(b.v16[6], int16_t(a.v16[6] << x));                                                             \
+  EXPECT_EQ(b.v16[7], int16_t(a.v16[7] << x));                                                             \
+  EXPECT_EQ(b.v16[8], int16_t(a.v16[8] << x));                                                             \
+  EXPECT_EQ(b.v16[9], int16_t(a.v16[9] << x));                                                             \
+  EXPECT_EQ(b.v16[10], int16_t(a.v16[10] << x));                                                           \
+  EXPECT_EQ(b.v16[11], int16_t(a.v16[11] << x));                                                           \
+  EXPECT_EQ(b.v16[12], int16_t(a.v16[12] << x));                                                           \
+  EXPECT_EQ(b.v16[13], int16_t(a.v16[13] << x));                                                           \
+  EXPECT_EQ(b.v16[14], int16_t(a.v16[14] << x));                                                           \
+  EXPECT_EQ(b.v16[15], int16_t(a.v16[15] << x));
 
   CHECK_LSHIFT(a, b, 0);
   CHECK_LSHIFT(a, b, 1);
@@ -435,31 +424,30 @@ TEST(testIntrin, testSLLIepi16)
 
 TEST(testIntrin, testSRLIepi16)
 {
-  std::array<int16_t, 16> a;
-  std::array<int16_t, 16> b;
+  ArrType a, b;
   for (unsigned int i = 0; i < 16; i++)
   {
-    a[i] = rand();
+    a.v16[i] = rand();
   }
 
 #define CHECK_RSHIFT(a, b, x)                                                                      \
-  b = CPP_INTRIN::m256_srli_epi16<x>(a);                                                           \
-  EXPECT_EQ(b[0], int16_t(((uint16_t)a[0]) >> x));                                                 \
-  EXPECT_EQ(b[1], int16_t(((uint16_t)a[1]) >> x));                                                 \
-  EXPECT_EQ(b[2], int16_t(((uint16_t)a[2]) >> x));                                                 \
-  EXPECT_EQ(b[3], int16_t(((uint16_t)a[3]) >> x));                                                 \
-  EXPECT_EQ(b[4], int16_t(((uint16_t)a[4]) >> x));                                                 \
-  EXPECT_EQ(b[5], int16_t(((uint16_t)a[5]) >> x));                                                 \
-  EXPECT_EQ(b[6], int16_t(((uint16_t)a[6]) >> x));                                                 \
-  EXPECT_EQ(b[7], int16_t(((uint16_t)a[7]) >> x));                                                 \
-  EXPECT_EQ(b[8], int16_t(((uint16_t)a[8]) >> x));                                                 \
-  EXPECT_EQ(b[9], int16_t(((uint16_t)a[9]) >> x));                                                 \
-  EXPECT_EQ(b[10], int16_t(((uint16_t)a[10]) >> x));                                               \
-  EXPECT_EQ(b[11], int16_t(((uint16_t)a[11]) >> x));                                               \
-  EXPECT_EQ(b[12], int16_t(((uint16_t)a[12]) >> x));                                               \
-  EXPECT_EQ(b[13], int16_t(((uint16_t)a[13]) >> x));                                               \
-  EXPECT_EQ(b[14], int16_t(((uint16_t)a[14]) >> x));                                               \
-  EXPECT_EQ(b[15], int16_t(((uint16_t)a[15]) >> x));
+  b = m256_srli_epi16(&a,x);                                                           \
+  EXPECT_EQ(b.v16[0], int16_t(((uint16_t)a.v16[0]) >> x));                                                 \
+  EXPECT_EQ(b.v16[1], int16_t(((uint16_t)a.v16[1]) >> x));                                                 \
+  EXPECT_EQ(b.v16[2], int16_t(((uint16_t)a.v16[2]) >> x));                                                 \
+  EXPECT_EQ(b.v16[3], int16_t(((uint16_t)a.v16[3]) >> x));                                                 \
+  EXPECT_EQ(b.v16[4], int16_t(((uint16_t)a.v16[4]) >> x));                                                 \
+  EXPECT_EQ(b.v16[5], int16_t(((uint16_t)a.v16[5]) >> x));                                                 \
+  EXPECT_EQ(b.v16[6], int16_t(((uint16_t)a.v16[6]) >> x));                                                 \
+  EXPECT_EQ(b.v16[7], int16_t(((uint16_t)a.v16[7]) >> x));                                                 \
+  EXPECT_EQ(b.v16[8], int16_t(((uint16_t)a.v16[8]) >> x));                                                 \
+  EXPECT_EQ(b.v16[9], int16_t(((uint16_t)a.v16[9]) >> x));                                                 \
+  EXPECT_EQ(b.v16[10], int16_t(((uint16_t)a.v16[10]) >> x));                                               \
+  EXPECT_EQ(b.v16[11], int16_t(((uint16_t)a.v16[11]) >> x));                                               \
+  EXPECT_EQ(b.v16[12], int16_t(((uint16_t)a.v16[12]) >> x));                                               \
+  EXPECT_EQ(b.v16[13], int16_t(((uint16_t)a.v16[13]) >> x));                                               \
+  EXPECT_EQ(b.v16[14], int16_t(((uint16_t)a.v16[14]) >> x));                                               \
+  EXPECT_EQ(b.v16[15], int16_t(((uint16_t)a.v16[15]) >> x));
 
   CHECK_RSHIFT(a, b, 0);
   CHECK_RSHIFT(a, b, 1);
@@ -484,57 +472,59 @@ TEST(testIntrin, testSRLIepi16)
 
 TEST(testIntrin, testAbsepi16)
 {
-  std::array<int16_t, 16> a;
+  ArrType a;
   for (unsigned i = 0; i < 16; i++)
   {
-    a[i] = rand();
+    a.v16[i] = rand();
   }
 
-  auto b = CPP_INTRIN::m256_abs_epi16(a);
+  auto b = m256_abs_epi16(&a);
   for (unsigned int i = 0; i < 16; i++)
   {
-    EXPECT_EQ(b[i], std::abs(a[i]));
+    EXPECT_EQ(b.v16[i], std::abs(a.v16[i]));
   }
 }
 
 TEST(testIntrin, testRand)
 {
-  __uint128_t a = static_cast<unsigned>(rand());
-  __uint128_t b = static_cast<unsigned>(rand());
-
-  auto k = CPP_INTRIN::get_randomness(a, b);
-  EXPECT_NE(k, a);
-  EXPECT_NE(k, b);
+  ArrType a, b; 
+  a.v64[0] = static_cast<uint64_t>(rand());
+  a.v64[1] = static_cast<uint64_t>(rand());
+  b.v64[0] = static_cast<uint64_t>(rand());
+  b.v64[1] = static_cast<uint64_t>(rand());
+  auto k = get_randomness(&a, &b);
+  EXPECT_NE((__uint128_t)k.m128[0], (__uint128_t)a.m128[0]);
+  EXPECT_NE((__uint128_t)k.m128[0], (__uint128_t)b.m128[0]);
 }
 
 TEST(testIntrin, testBroadcast)
 {
   // Generate a random __uint128_t to use as our broadcast value.
-  __uint128_t a = static_cast<__uint128_t>(rand());
-  auto c        = CPP_INTRIN::m256_broadcastsi128_si256(a);
+  ArrType a;
+  a.m128[0] = (__m128i)static_cast<__uint128_t>(rand());
+  auto c        = m256_broadcastsi128_si256(&a);
 
   // Firstly we check for consistency in the array: in particular, a[i] = a[i+8] for i in {0, 7}
   for (unsigned int i = 0; i < 8; i++)
   {
-    ASSERT_EQ(c[i], c[i + 8]);
+    ASSERT_EQ(c.v16[i], c.v16[i + 8]);
   }
 
   // And then we check that the values are what we actually expect when converted to a uint128_t
   __uint128_t out;
-  memcpy(&out, &c[0], sizeof(out));
-  ASSERT_EQ(out, a);
+  memcpy(&out, &c.m128[0], sizeof(out));
+  ASSERT_EQ(out, (__uint128_t)a.m128[0]);
 }
 
 TEST(testIntrin, testExtract)
 {
-  __uint128_t a = static_cast<__uint128_t>(rand());
-  auto c        = CPP_INTRIN::mm_extract_epi64<0>(a);
-  auto d        = CPP_INTRIN::mm_extract_epi64<1>(a);
+  ArrType a; 
+  a.m128[0]     = (__m128i)static_cast<__uint128_t>(rand());
+  auto c        = mm_extract_epi64(&a,0);
+  auto d        = mm_extract_epi64(&a,1);
   // Extract the 64-bit quantities manually.
-
-  uint64_t c1 = a & 0xFFFFFFFFFFFFFFFF;
-  uint64_t c2 = (a >> 64) & 0xFFFFFFFFFFFFFFFF;
+  uint64_t c1 = ((__uint128_t)a.m128[0]) & 0xFFFFFFFFFFFFFFFF;
+  uint64_t c2 = (((__uint128_t)a.m128[0]) >> 64) & 0xFFFFFFFFFFFFFFFF;
   ASSERT_EQ(c1, c);
   ASSERT_EQ(c2, d);
 }
-*/
