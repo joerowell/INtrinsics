@@ -414,8 +414,8 @@ inline ArrType get_randomness(ArrType *const gstate_1, ArrType *const gstate_2) 
 #else
   gstate_1->m128[0] = (__m128i)((__uint128_t)gstate_1->m128[0] * 0xda942042e4dd85b5);
   gstate_2->m128[0] *= (__m128i)((__uint128_t)gstate_2->m128[0] * 0xda942042e4dd85b5);
-  out.v64[0] = gstate_1->v64[1];
-  out.v64[1] = gstate_2->v64[0];
+  out.v64[0]   = gstate_1->v64[1];
+  out.v64[1]   = gstate_2->v64[0];
 #endif
   return out;
 }
@@ -532,8 +532,8 @@ inline ArrType m256_cmpgt_epi16(const ArrType *const a, const ArrType *const b)
 #ifdef __AVX2__
   c.m256 = _mm256_cmpgt_epi16(a->m256, b->m256);
 #elif defined(__SSE2__)
-  c.m128[0]  = _mm_cmpgt_epi16(a->m128[0], b->m128[0]);
-  c.m128[1]  = _mm_cmpgt_epi16(a->m128[1], b->m128[1]);
+  c.m128[0]    = _mm_cmpgt_epi16(a->m128[0], b->m128[0]);
+  c.m128[1]    = _mm_cmpgt_epi16(a->m128[1], b->m128[1]);
 #else
   // A sensible compiler will unroll this and produce somewhat good vectorised
   // code, but not quite optimal code (as of GCC 10.2).
@@ -550,168 +550,166 @@ inline ArrType m256_cmpgt_epi16(const ArrType *const a, const ArrType *const b)
   return c;
 }
 
-  /***
-    * m256_testz_si256.
-    */
-   inline bool m256_testz_si256(const ArrType * const a, const ArrType * const b)
-   {
- #ifdef __AVX2__
-     return _mm256_testz_si256(a->m256, b->m256);
- #else
-     const auto c = m256_and_epi64(a, b);
-     // Sum and pop-cnt all of the elements in c.
-     // Note: builtin_popcountl will compile to a CPU instruction iff SSE4.2 or later
-     // is available, but if not the compiler has its own dedicated software routines
-     // for this.
-     int total0, total1, total2, total3;
-       total0 = __builtin_popcountl((uint64_t)c.v64[0]);
-       total1 = __builtin_popcountl((uint64_t)c.v64[1]);
-       total2 = __builtin_popcountl((uint64_t)c.v64[2]);
-       total3 = __builtin_popcountl((uint64_t)c.v64[3]);
- 
-     return (total0 + total1 + total2 + total3) == 0;
- #endif
-   }
-
-   /***
-   * m256_add_epi16. This function accepts 2 array references, a and b, and pairwises sums a and b,
-   * returning the result, denoted as c. This function exactly mimics the _mm256_add_epi16 function.
-   * In particular, after this function is called, c
-   * has the following layout: For all i = 0, ..., 15: c[i] = a[i] + b[i]
-   *
-   * This function appears to be trivially vectorisable on GCC 10.2, and as a
-   * result we do not introduce other intrinsics into this function.
-   */
-  inline ArrType m256_add_epi16(const ArrType * const a,
-                                const ArrType * const b)
-  {
-    ArrType c;
-    // Note; this very trivial for-loop should be trivial for the compiler to
-    // optimise, especially if it knows the size of the arrays ahead of time
-    // (which it does!)
-    for (unsigned int i = 0; i < 16; i++)
-    {
-      c.v16[i] = a->v16[i] + b->v16[i];
-    }
-    return c;
-  }
-
-
-   /***
-    * m256_sub_epi16. This function accepts 2 array references, a and b, and pairwises sums a and b,
-    * returning the result, denoted as c. This function exactly mimics the _mm256_add_epi16 function.
-    * In particular, after this function is called, c
-    * has the following layout: For all i = 0, ..., 15: c[i] = a[i] - b[i]
-    *
-    * This function appears to be trivially vectorisable on GCC 10.2, and as a
-    * result we do not introduce other intrinsics into this function.
-    */
-   inline ArrType m256_sub_epi16(const ArrType * const a, const ArrType * const b) 
-   {
-     ArrType c;
-     // Note; this very trivial for-loop should be trivial for the compiler to
-     // optimise, especially if it knows the size of the arrays ahead of time
-     // (which it does!)
-     for (unsigned int i = 0; i < 16; i++)
-     {
-       c.v16[i] = a->v16[i] - b->v16[i];
-     }
- 
-     return c;
-   }
- 
-   /**
-    * s256_sign_epi16.
-    * Applies a negation to the packed signed 16-bit integers in a according to
-    * the elements in b and returns the result in an array c.
-    *
-    * More particularly: for any i in [0 ... 15], after this function is called c
-    * contains the following:
-    *
-    * c[i] = a[i]  if b[i] > 0
-    * c[i] = 0     if b[i] == 0
-    * c[i] = -a[i] otherwise
-    *
-    * You can view this as a signed inclusion.
-    *
-    * Because GCC 10.2 seems to struggle with producing the right object code (see
-    * https://godbolt.org/z/3nasvK), we provide an AVX2 overload if it is defined by the compiler. In
-    * particular: a) if __AVX2__ is defined, we use the _mm256_sign_epi16
-    * intrinsic. b) else if __SSE3__ is defined, we use the _mm_sign_epi16
-    * intrinsic over each half of a and b.
-    * c) else, we use use our hand-written
-    * version.
-    *
-    * Note: our hand-written version is not bad. Rather cleverly, the compiler will vectorise the
-    * call to e_sign and apply it across all of the masks and then applies a multiplication. However,
-    * it's not quite as short as the _mm256_sign_epi16 version.
-    */
-   inline ArrType m256_sign_epi16(const ArrType * const a, const ArrType * const b)
-   {
-     // pre-conditions for the function to work.
-     assert(a != b);
-     ArrType c;
- #ifdef __AVX2__
-     c.m256 = _mm256_sign_epi16(a->m256, b->m256);
- #elif defined(__SSE3__)
-     c.m128[0] = _mm_sign_epi16(a->m128[0], b->m128[0]);
-     c.m128[1] = _mm_sign_epi16(a->m128[1], b->m128[1]);
- #else
-     // This function is rather simple: we extract the signs of each b[i] and
-     // multiply a[i] by them.
-     for (unsigned int i = 0; i < 16; i++)
-     {
-       c.v16[i] = a->v16[i] * e_sign(b->v16[i]);
-     }
- #endif
-     return c;
-   }
-
- /**
-   * m256_broadcastsi128_si256. Given a uint128_t `value` as input, this function returns an array,
-   * `a`, where a[0:7] = value and a[8:15] = value. This is exactly the same semantics as the
-   * __mm256_broadcastsi128_si256 intrinsic.
-   *
-   * GCC 10.2 has trouble producing vectorised code for this function: see e.g
-   * https://godbolt.org/z/covYEd. As a result, similarly to elsewhere in this file, we delegate to
-   * the appropriate intrinsics where available: a) If __AVX2__ is defined, we use the
-   * _mm256_broadcastsi128_si256 intrinsic. b) If __AVX2__ is not defined, but __SSE2__ is, we use
-   * two _mm_store_si128 instructions over the upper and lower halves of a. c) Otherwise we use our
-   * hand-rolled version.
-   */
-  inline ArrType m256_broadcastsi128_si256(const ArrType * const value)
-  {
-    ArrType a;
+/***
+ * m256_testz_si256.
+ */
+inline bool m256_testz_si256(const ArrType *const a, const ArrType *const b)
+{
 #ifdef __AVX2__
-    a.m256 = _mm256_broadcastsi128_si256(value->m128[0]);
-#elif defined(__SSE2__)
-    a.m128[0] = value->m128[0];
-    a.m128[1] = value->m128[0];
+  return _mm256_testz_si256(a->m256, b->m256);
 #else
-    // the simplest way to do this is just to use an memcpy.
-    // GCC compiles this to 4 mov instructions, which is exactly the behaviour we want.
-    memcpy(&a.v16[0], value, sizeof(*value));
-    memcpy(&a.v16[8], value, sizeof(*value));
+  const auto c = m256_and_epi64(a, b);
+  // Sum and pop-cnt all of the elements in c.
+  // Note: builtin_popcountl will compile to a CPU instruction iff SSE4.2 or later
+  // is available, but if not the compiler has its own dedicated software routines
+  // for this.
+  int total0, total1, total2, total3;
+  total0 = __builtin_popcountl((uint64_t)c.v64[0]);
+  total1 = __builtin_popcountl((uint64_t)c.v64[1]);
+  total2 = __builtin_popcountl((uint64_t)c.v64[2]);
+  total3 = __builtin_popcountl((uint64_t)c.v64[3]);
+
+  return (total0 + total1 + total2 + total3) == 0;
 #endif
-    return a;
+}
+
+/***
+ * m256_add_epi16. This function accepts 2 array references, a and b, and pairwises sums a and b,
+ * returning the result, denoted as c. This function exactly mimics the _mm256_add_epi16 function.
+ * In particular, after this function is called, c
+ * has the following layout: For all i = 0, ..., 15: c[i] = a[i] + b[i]
+ *
+ * This function appears to be trivially vectorisable on GCC 10.2, and as a
+ * result we do not introduce other intrinsics into this function.
+ */
+inline ArrType m256_add_epi16(const ArrType *const a, const ArrType *const b)
+{
+  ArrType c;
+  // Note; this very trivial for-loop should be trivial for the compiler to
+  // optimise, especially if it knows the size of the arrays ahead of time
+  // (which it does!)
+  for (unsigned int i = 0; i < 16; i++)
+  {
+    c.v16[i] = a->v16[i] + b->v16[i];
+  }
+  return c;
+}
+
+/***
+ * m256_sub_epi16. This function accepts 2 array references, a and b, and pairwises sums a and b,
+ * returning the result, denoted as c. This function exactly mimics the _mm256_add_epi16 function.
+ * In particular, after this function is called, c
+ * has the following layout: For all i = 0, ..., 15: c[i] = a[i] - b[i]
+ *
+ * This function appears to be trivially vectorisable on GCC 10.2, and as a
+ * result we do not introduce other intrinsics into this function.
+ */
+inline ArrType m256_sub_epi16(const ArrType *const a, const ArrType *const b)
+{
+  ArrType c;
+  // Note; this very trivial for-loop should be trivial for the compiler to
+  // optimise, especially if it knows the size of the arrays ahead of time
+  // (which it does!)
+  for (unsigned int i = 0; i < 16; i++)
+  {
+    c.v16[i] = a->v16[i] - b->v16[i];
   }
 
-  /**
-   * mm_extract_epi64. Given a uint128_t `value` as input and a template parameter `pos`, this
-   * function returns the 64-bit in value[pos*64:(pos*64) + 63]. This compiles down into a
-   * a series of shifts and xors, which is relatively fast.
-   *
-   * GCC 10.2 generates decent code (see lines 8 and 9 of https://godbolt.org/z/9nEcEe), but it
-   * isn't quite the vectorised instructions we'd like. As a result, we delegate to the pextract
-   * intrinsic if it's available. This intrinsic is available if SSE4.1 is available.
-   */
-  inline int64_t mm_extract_epi64(const ArrType * const arr, const uint8_t imm8)
-  {
-#ifdef __AVX__  // SSE4.1 doesn't have a supported macro: the lowest other macro is AVX.
-    return _mm_extract_epi64(arr->m128[0], imm8);
+  return c;
+}
+
+/**
+ * s256_sign_epi16.
+ * Applies a negation to the packed signed 16-bit integers in a according to
+ * the elements in b and returns the result in an array c.
+ *
+ * More particularly: for any i in [0 ... 15], after this function is called c
+ * contains the following:
+ *
+ * c[i] = a[i]  if b[i] > 0
+ * c[i] = 0     if b[i] == 0
+ * c[i] = -a[i] otherwise
+ *
+ * You can view this as a signed inclusion.
+ *
+ * Because GCC 10.2 seems to struggle with producing the right object code (see
+ * https://godbolt.org/z/3nasvK), we provide an AVX2 overload if it is defined by the compiler. In
+ * particular: a) if __AVX2__ is defined, we use the _mm256_sign_epi16
+ * intrinsic. b) else if __SSE3__ is defined, we use the _mm_sign_epi16
+ * intrinsic over each half of a and b.
+ * c) else, we use use our hand-written
+ * version.
+ *
+ * Note: our hand-written version is not bad. Rather cleverly, the compiler will vectorise the
+ * call to e_sign and apply it across all of the masks and then applies a multiplication. However,
+ * it's not quite as short as the _mm256_sign_epi16 version.
+ */
+inline ArrType m256_sign_epi16(const ArrType *const a, const ArrType *const b)
+{
+  // pre-conditions for the function to work.
+  assert(a != b);
+  ArrType c;
+#ifdef __AVX2__
+  c.m256 = _mm256_sign_epi16(a->m256, b->m256);
+#elif defined(__SSE3__)
+  c.m128[0] = _mm_sign_epi16(a->m128[0], b->m128[0]);
+  c.m128[1] = _mm_sign_epi16(a->m128[1], b->m128[1]);
 #else
-    return arr->v64[imm8];
-#endif
+  // This function is rather simple: we extract the signs of each b[i] and
+  // multiply a[i] by them.
+  for (unsigned int i = 0; i < 16; i++)
+  {
+    c.v16[i] = a->v16[i] * e_sign(b->v16[i]);
   }
+#endif
+  return c;
+}
+
+/**
+ * m256_broadcastsi128_si256. Given a uint128_t `value` as input, this function returns an array,
+ * `a`, where a[0:7] = value and a[8:15] = value. This is exactly the same semantics as the
+ * __mm256_broadcastsi128_si256 intrinsic.
+ *
+ * GCC 10.2 has trouble producing vectorised code for this function: see e.g
+ * https://godbolt.org/z/covYEd. As a result, similarly to elsewhere in this file, we delegate to
+ * the appropriate intrinsics where available: a) If __AVX2__ is defined, we use the
+ * _mm256_broadcastsi128_si256 intrinsic. b) If __AVX2__ is not defined, but __SSE2__ is, we use
+ * two _mm_store_si128 instructions over the upper and lower halves of a. c) Otherwise we use our
+ * hand-rolled version.
+ */
+inline ArrType m256_broadcastsi128_si256(const ArrType *const value)
+{
+  ArrType a;
+#ifdef __AVX2__
+  a.m256 = _mm256_broadcastsi128_si256(value->m128[0]);
+#elif defined(__SSE2__)
+  a.m128[0] = value->m128[0];
+  a.m128[1] = value->m128[0];
+#else
+  // the simplest way to do this is just to use an memcpy.
+  // GCC compiles this to 4 mov instructions, which is exactly the behaviour we want.
+  memcpy(&a.v16[0], value, sizeof(*value));
+  memcpy(&a.v16[8], value, sizeof(*value));
+#endif
+  return a;
+}
+
+/**
+ * mm_extract_epi64. Given a uint128_t `value` as input and a template parameter `pos`, this
+ * function returns the 64-bit in value[pos*64:(pos*64) + 63]. This compiles down into a
+ * a series of shifts and xors, which is relatively fast.
+ *
+ * GCC 10.2 generates decent code (see lines 8 and 9 of https://godbolt.org/z/9nEcEe), but it
+ * isn't quite the vectorised instructions we'd like. As a result, we delegate to the pextract
+ * intrinsic if it's available. This intrinsic is available if SSE4.1 is available.
+ */
+inline int64_t mm_extract_epi64(const ArrType *const arr, const uint8_t imm8)
+{
+#ifdef __AVX__  // SSE4.1 doesn't have a supported macro: the lowest other macro is AVX.
+  return _mm_extract_epi64(arr->m128[0], imm8);
+#else
+  return arr->v64[imm8];
+#endif
+}
 
 #endif
