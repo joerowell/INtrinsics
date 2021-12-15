@@ -23,3 +23,5 @@ The salient point is this: AVX2 instructions are often implemented as duplicates
 
 ## Why not simde/VCL/any others?
 All of those libraries are excellent libraries in their own ways. This project was initially born to substitute directly into the [G6K](https://github.com/fplll/g6k) project to reduce the reliance on machine intrinsics. Given that the use case there is quite small, this is also a small library. It may get updated in future to include more intrinsics as and when they're necessary.
+
+Please note that this particular aim was eventually realised by the [GCC bucketer](https://github.com/joerowell/gcc-bucketer) instead, since that approach seems to generate better object code by default. If you're curious about how that works, please see that project.
